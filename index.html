@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CollabBoard Login</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="7" y="9" width="2" height="8" rx="1" fill="#a8b1ff"/>
+                        <rect x="11" y="11" width="2" height="4" rx="1" fill="#a8b1ff"/>
+                        <rect x="15" y="7" width="2" height="12" rx="1" fill="#a8b1ff"/>
+                    </svg>
+                </div>
+                <h1>CollabBoard</h1>
+            </div>
+            
+            <div class="welcome-text">
+                <h2>Welcome Back!</h2>
+                <p>Please log in to your account.</p>
+            </div>
+
+            <form>
+                <div class="input-group">
+                    <div class="input-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="#878c9e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z" stroke="#878c9e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <input type="text" placeholder="Username / Email" required>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19 11H5C3.89543 11 3 11.8954 3 13V20C3 21.1046 3.89543 22 5 22H19C20.1046 22 21 21.1046 21 20V13C21 11.8954 20.1046 11 19 11Z" stroke="#878c9e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M7 11V7C7 5.67392 7.52678 4.40215 8.46447 3.46447C9.40215 2.52678 10.6739 2 12 2C13.3261 2 14.5979 2.52678 15.5355 3.46447C16.4732 4.40215 17 5.67392 17 7V11" stroke="#878c9e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <input type="password" placeholder="Password" required>
+                </div>
+
+                <div class="form-actions">
+                    <label class="remember-me">
+                        <input type="checkbox">
+                        <span class="checkmark"></span>
+                        Remember me
+                    </label>
+                    <a href="#" class="forgot-password">Forgot Password?</a>
+                </div>
+
+                <button type="submit" class="login-btn">Login to CollabBoard</button>
+            </form>
+
+            <div class="divider">
+                <span>or</span>
+            </div>
+
+            <div class="info-text">
+                <p>New member? Invite will be sent via your team admin (Niro). For Git Repo access, please use the provided credentials.</p>
+                <p>If you are the team leader (Niro), ensure you create the initial account and add your members in the admin panel later.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
