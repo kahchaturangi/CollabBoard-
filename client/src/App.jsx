@@ -8,6 +8,7 @@ import KanbanBoard from './components/KanbanBoard';
 import TaskEditModal from './components/TaskEditModal';
 import { INITIAL_COLUMNS, INITIAL_TASKS } from './mockData';
 import { apiService } from './services/api';
+import { taskStorage } from './services/storage';
 
 function Board({ tasks, setTasks, columns, searchQuery, setSearchQuery, selectedPriority, setSelectedPriority, selectedTag, setSelectedTag, availableTags, filteredTasks, handleDragEnd, handleOpenEditModal, handleDeleteTask, handleOpenAddModal, isModalOpen, setIsModalOpen, handleSaveTask, taskToEdit, defaultStatus, setAuth }) {
   return (
@@ -63,7 +64,12 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
   
   const [columns] = useState(INITIAL_COLUMNS);
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const [tasks, setTasks] = useState(() => {
+  return taskStorage.loadTasks() || INITIAL_TASKS;
+});
+useEffect(() => {
+  taskStorage.saveTasks(tasks);
+}, [tasks]);
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
