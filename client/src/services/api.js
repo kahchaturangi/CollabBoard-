@@ -1,10 +1,43 @@
 // REST API Service with automatic fallback to local state / mock data
 const API_BASE = '/api/tasks';
 
+// Helper to get headers with JWT token
+const getHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+};
+
 export const apiService = {
+  // Auth endpoints
+  async login(email, password) {
+    const response = await fetch('http://localhost:5000/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Login failed');
+    return data;
+  },
+
+  async register(username, email, password) {
+    const response = await fetch('http://localhost:5000/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Registration failed');
+    return data;
+  },
+
+  // Task endpoints
   async fetchTasks() {
     try {
-      const response = await fetch(API_BASE);
+      const response = await fetch('http://localhost:5000/api/tasks', { headers: getHeaders() });
       if (!response.ok) throw new Error('API server unavailable');
       const data = await response.json();
       return data;
@@ -16,9 +49,9 @@ export const apiService = {
 
   async createTask(taskData) {
     try {
-      const response = await fetch(API_BASE, {
+      const response = await fetch('http://localhost:5000/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify(taskData),
       });
       if (!response.ok) throw new Error('Failed to save task to backend');
@@ -31,9 +64,9 @@ export const apiService = {
 
   async updateTask(id, updates) {
     try {
-      const response = await fetch(`${API_BASE}/${id}`, {
+      const response = await fetch(`http://localhost:5000/api/tasks/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify(updates),
       });
       if (!response.ok) throw new Error('Failed to update task');
@@ -46,8 +79,9 @@ export const apiService = {
 
   async deleteTask(id) {
     try {
-      const response = await fetch(`${API_BASE}/${id}`, {
+      const response = await fetch(`http://localhost:5000/api/tasks/${id}`, {
         method: 'DELETE',
+        headers: getHeaders(),
       });
       return response.ok;
     } catch (error) {

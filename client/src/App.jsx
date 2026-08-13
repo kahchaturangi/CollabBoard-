@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './components/Login';
+import Register from './components/Register';
 import Navbar from './components/Navbar';
 import FilterBar from './components/FilterBar';
 import KanbanBoard from './components/KanbanBoard';
@@ -6,7 +9,59 @@ import TaskEditModal from './components/TaskEditModal';
 import { INITIAL_COLUMNS, INITIAL_TASKS } from './mockData';
 import { apiService } from './services/api';
 
+function Board({ tasks, setTasks, columns, searchQuery, setSearchQuery, selectedPriority, setSelectedPriority, selectedTag, setSelectedTag, availableTags, filteredTasks, handleDragEnd, handleOpenEditModal, handleDeleteTask, handleOpenAddModal, isModalOpen, setIsModalOpen, handleSaveTask, taskToEdit, defaultStatus, setAuth }) {
+  return (
+    <div className="app-container">
+      <Navbar
+        onOpenAddModal={() => handleOpenAddModal('todo')}
+        totalTasksCount={tasks.length}
+      />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 20px' }}>
+        <button 
+          onClick={() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setAuth(false);
+          }}
+          style={{ padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+        >
+          Logout
+        </button>
+      </div>
+
+      <FilterBar
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        selectedPriority={selectedPriority}
+        setSelectedPriority={setSelectedPriority}
+        selectedTag={selectedTag}
+        setSelectedTag={setSelectedTag}
+        availableTags={availableTags}
+      />
+
+      <KanbanBoard
+        columns={columns}
+        tasks={filteredTasks}
+        onDragEnd={handleDragEnd}
+        onEditTask={handleOpenEditModal}
+        onDeleteTask={handleDeleteTask}
+        onQuickAddTask={handleOpenAddModal}
+      />
+
+      <TaskEditModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSaveTask}
+        taskToEdit={taskToEdit}
+        defaultStatus={defaultStatus}
+      />
+    </div>
+  );
+}
+
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
+  
   const [columns] = useState(INITIAL_COLUMNS);
   const [tasks, setTasks] = useState(INITIAL_TASKS);
 
@@ -23,13 +78,15 @@ export default function App() {
   // Fetch tasks on mount if REST API backend is available
   useEffect(() => {
     async function loadTasks() {
-      const serverTasks = await apiService.fetchTasks();
-      if (serverTasks && Array.isArray(serverTasks) && serverTasks.length > 0) {
-        setTasks(serverTasks);
+      if (isAuthenticated) {
+        const serverTasks = await apiService.fetchTasks();
+        if (serverTasks && Array.isArray(serverTasks) && serverTasks.length > 0) {
+          setTasks(serverTasks);
+        }
       }
     }
     loadTasks();
-  }, []);
+  }, [isAuthenticated]);
 
   // Compute available tags for filter chips
   const availableTags = useMemo(() => {
@@ -62,28 +119,17 @@ export default function App() {
   const handleDragEnd = async (result) => {
     const { destination, source, draggableId } = result;
 
-    // Dropped outside a valid drop target
     if (!destination) return;
-
-    // Dropped in exact same position
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return;
-    }
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
     const updatedTasks = Array.from(tasks);
     const draggedTaskIndex = updatedTasks.findIndex((t) => t.id === draggableId);
     if (draggedTaskIndex === -1) return;
 
     const [draggedTask] = updatedTasks.splice(draggedTaskIndex, 1);
-    
-    // Update task's column status
     const newStatus = destination.droppableId;
     const updatedTask = { ...draggedTask, status: newStatus };
 
-    // Find destination index insertion point
     const destColumnTasks = updatedTasks.filter((t) => t.status === newStatus);
     const nonDestTasks = updatedTasks.filter((t) => t.status !== newStatus);
 
@@ -92,7 +138,6 @@ export default function App() {
     const finalTasks = [...nonDestTasks, ...destColumnTasks];
     setTasks(finalTasks);
 
-    // Sync status change with API backend if available
     await apiService.updateTask(updatedTask.id, { status: newStatus });
   };
 
@@ -124,38 +169,31 @@ export default function App() {
   };
 
   return (
-    <div className="app-container">
-      <Navbar
-        onOpenAddModal={() => handleOpenAddModal('todo')}
-        totalTasksCount={tasks.length}
-      />
-
-      <FilterBar
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        selectedPriority={selectedPriority}
-        setSelectedPriority={setSelectedPriority}
-        selectedTag={selectedTag}
-        setSelectedTag={setSelectedTag}
-        availableTags={availableTags}
-      />
-
-      <KanbanBoard
-        columns={columns}
-        tasks={filteredTasks}
-        onDragEnd={handleDragEnd}
-        onEditTask={handleOpenEditModal}
-        onDeleteTask={handleDeleteTask}
-        onQuickAddTask={handleOpenAddModal}
-      />
-
-      <TaskEditModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleSaveTask}
-        taskToEdit={taskToEdit}
-        defaultStatus={defaultStatus}
-      />
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/login" element={isAuthenticated ? <Navigate to="/board" /> : <Login setAuth={setIsAuthenticated} />} />
+        <Route path="/register" element={isAuthenticated ? <Navigate to="/board" /> : <Register setAuth={setIsAuthenticated} />} />
+        <Route 
+          path="/board" 
+          element={
+            isAuthenticated ? (
+              <Board 
+                tasks={tasks} setTasks={setTasks} columns={columns} 
+                searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
+                selectedPriority={selectedPriority} setSelectedPriority={setSelectedPriority} 
+                selectedTag={selectedTag} setSelectedTag={setSelectedTag} 
+                availableTags={availableTags} filteredTasks={filteredTasks} 
+                handleDragEnd={handleDragEnd} handleOpenEditModal={handleOpenEditModal} 
+                handleDeleteTask={handleDeleteTask} handleOpenAddModal={handleOpenAddModal} 
+                isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} 
+                handleSaveTask={handleSaveTask} taskToEdit={taskToEdit} defaultStatus={defaultStatus}
+                setAuth={setIsAuthenticated}
+              />
+            ) : <Navigate to="/login" />
+          } 
+        />
+        <Route path="/" element={<Navigate to={isAuthenticated ? "/board" : "/login"} />} />
+      </Routes>
+    </Router>
   );
 }
