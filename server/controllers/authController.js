@@ -1,9 +1,10 @@
 const User = require('../models/User');
+const Board = require('../models/Board');
 const jwt = require('jsonwebtoken');
 
 // Generate JWT Token
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+const generateToken = (id, boardId) => {
+  return jwt.sign({ id, boardId }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE || '30d',
   });
 };
@@ -35,12 +36,21 @@ exports.registerUser = async (req, res) => {
     });
 
     if (user) {
+      // Auto-create a default board for the new user
+      const board = await Board.create({
+        name: `${username}'s Board`,
+        description: 'My default CollabBoard',
+        owner: user._id,
+        members: [user._id],
+      });
+
       res.status(201).json({
         success: true,
         _id: user._id,
         username: user.username,
         email: user.email,
-        token: generateToken(user._id),
+        boardId: board._id,
+        token: generateToken(user._id, board._id),
       });
     } else {
       res.status(400).json({ success: false, message: 'Invalid user data' });
@@ -94,7 +104,11 @@ exports.loginUser = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    res.status(200).json({ success: true, data: user });
+    const board = await Board.findOne({ owner: req.user.id });
+    res.status(200).json({
+      success: true,
+      data: { ...user.toObject(), boardId: board ? board._id : null },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

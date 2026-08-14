@@ -1,5 +1,5 @@
 // REST API Service with automatic fallback to local state / mock data
-const API_BASE = '/api/tasks';
+const API_BASE = 'http://localhost:5000/api';
 
 // Helper to get headers with JWT token
 const getHeaders = () => {
@@ -10,10 +10,17 @@ const getHeaders = () => {
   };
 };
 
+// Normalize a task returned from MongoDB (adds `id` alias for `_id`)
+const normalize = (task) => ({
+  ...task,
+  id: task.id || task._id?.toString() || task.id,
+});
+
 export const apiService = {
-  // Auth endpoints
+  // ─── Auth ────────────────────────────────────────────────────────────────
+
   async login(email, password) {
-    const response = await fetch('http://localhost:5000/api/auth/login', {
+    const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -24,7 +31,7 @@ export const apiService = {
   },
 
   async register(username, email, password) {
-    const response = await fetch('http://localhost:5000/api/auth/register', {
+    const response = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, email, password }),
@@ -34,58 +41,63 @@ export const apiService = {
     return data;
   },
 
-  // Task endpoints
+  // ─── Tasks ───────────────────────────────────────────────────────────────
+
   async fetchTasks() {
     try {
-      const response = await fetch('http://localhost:5000/api/tasks', { headers: getHeaders() });
+      const response = await fetch(`${API_BASE}/tasks`, { headers: getHeaders() });
       if (!response.ok) throw new Error('API server unavailable');
       const data = await response.json();
-      return data;
+      // data.data is the array from the server
+      const tasks = Array.isArray(data.data) ? data.data : data;
+      return tasks.map(normalize);
     } catch (error) {
-      console.warn('Backend API offline. Operating using client state:', error.message);
+      console.warn('Backend offline — using local cache:', error.message);
       return null;
     }
   },
 
   async createTask(taskData) {
     try {
-      const response = await fetch('http://localhost:5000/api/tasks', {
+      const response = await fetch(`${API_BASE}/tasks`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify(taskData),
       });
       if (!response.ok) throw new Error('Failed to save task to backend');
-      return await response.json();
+      const data = await response.json();
+      return normalize(data.data || data);
     } catch (error) {
-      console.warn('Task saved to local client state (Backend sync offline)');
-      return taskData;
+      console.warn('Task saved to local state (backend offline):', error.message);
+      return taskData; // return as-is so local state stays correct
     }
   },
 
   async updateTask(id, updates) {
     try {
-      const response = await fetch(`http://localhost:5000/api/tasks/${id}`, {
+      const response = await fetch(`${API_BASE}/tasks/${id}`, {
         method: 'PUT',
         headers: getHeaders(),
         body: JSON.stringify(updates),
       });
       if (!response.ok) throw new Error('Failed to update task');
-      return await response.json();
+      const data = await response.json();
+      return normalize(data.data || data);
     } catch (error) {
-      console.warn('Task updated in local state:', error.message);
+      console.warn('Task updated in local state only:', error.message);
       return updates;
     }
   },
 
   async deleteTask(id) {
     try {
-      const response = await fetch(`http://localhost:5000/api/tasks/${id}`, {
+      const response = await fetch(`${API_BASE}/tasks/${id}`, {
         method: 'DELETE',
         headers: getHeaders(),
       });
       return response.ok;
     } catch (error) {
-      console.warn('Task deleted from local state');
+      console.warn('Task deleted from local state only:', error.message);
       return true;
     }
   },

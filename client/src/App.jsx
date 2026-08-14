@@ -8,7 +8,7 @@ import KanbanBoard from './components/KanbanBoard';
 import TaskEditModal from './components/TaskEditModal';
 import { INITIAL_COLUMNS, INITIAL_TASKS } from './mockData';
 import { apiService } from './services/api';
-import { taskStorage } from './services/storage';
+import { taskStorage, offlineQueue } from './services/storage';
 
 function Board({ tasks, setTasks, columns, searchQuery, setSearchQuery, selectedPriority, setSelectedPriority, selectedTag, setSelectedTag, availableTags, filteredTasks, handleDragEnd, handleOpenEditModal, handleDeleteTask, handleOpenAddModal, isModalOpen, setIsModalOpen, handleSaveTask, taskToEdit, defaultStatus, setAuth }) {
   return (
@@ -81,17 +81,35 @@ useEffect(() => {
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [defaultStatus, setDefaultStatus] = useState('todo');
 
-  // Fetch tasks on mount if REST API backend is available
+  // Flush any offline-queued writes, then load tasks from server
   useEffect(() => {
-    async function loadTasks() {
-      if (isAuthenticated) {
-        const serverTasks = await apiService.fetchTasks();
-        if (serverTasks && Array.isArray(serverTasks) && serverTasks.length > 0) {
-          setTasks(serverTasks);
+    async function flushAndLoad() {
+      if (!isAuthenticated) return;
+
+      // Replay any ops queued while offline
+      if (offlineQueue.hasPending()) {
+        const ops = offlineQueue.drain();
+        for (const op of ops) {
+          try {
+            if (op.type === 'create') await apiService.createTask(op.payload);
+            else if (op.type === 'update') await apiService.updateTask(op.id, op.payload);
+            else if (op.type === 'delete') await apiService.deleteTask(op.id);
+          } catch (e) {
+            // If still offline, re-enqueue and stop
+            offlineQueue.enqueue(op);
+            console.warn('[Offline Queue] Still offline, re-queued op:', op.type);
+            break;
+          }
         }
       }
+
+      // Now fetch fresh data from server
+      const serverTasks = await apiService.fetchTasks();
+      if (serverTasks && Array.isArray(serverTasks) && serverTasks.length > 0) {
+        setTasks(serverTasks);
+      }
     }
-    loadTasks();
+    flushAndLoad();
   }, [isAuthenticated]);
 
   // Compute available tags for filter chips
@@ -161,17 +179,34 @@ useEffect(() => {
 
   const handleSaveTask = async (taskData) => {
     if (taskToEdit) {
+      // Optimistic update
       setTasks((prev) => prev.map((t) => (t.id === taskData.id ? taskData : t)));
-      await apiService.updateTask(taskData.id, taskData);
+      const result = await apiService.updateTask(taskData.id, taskData);
+      if (!result || result === taskData) {
+        // Backend was offline — queue the write
+        offlineQueue.enqueue({ type: 'update', id: taskData.id, payload: taskData });
+      }
     } else {
-      setTasks((prev) => [taskData, ...prev]);
-      await apiService.createTask(taskData);
+      const tempId = `local-${Date.now()}`;
+      const newTask = { ...taskData, id: tempId };
+      setTasks((prev) => [newTask, ...prev]);
+      const result = await apiService.createTask(taskData);
+      if (!result || result === taskData) {
+        // Backend was offline — queue the write
+        offlineQueue.enqueue({ type: 'create', id: tempId, payload: taskData });
+      } else if (result.id && result.id !== tempId) {
+        // Replace temp ID with the real MongoDB _id
+        setTasks((prev) => prev.map((t) => (t.id === tempId ? result : t)));
+      }
     }
   };
 
   const handleDeleteTask = async (taskId) => {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
-    await apiService.deleteTask(taskId);
+    const ok = await apiService.deleteTask(taskId);
+    if (!ok) {
+      offlineQueue.enqueue({ type: 'delete', id: taskId, payload: {} });
+    }
   };
 
   return (
