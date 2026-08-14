@@ -1,5 +1,4 @@
-const User = require('../models/User');
-const Board = require('../models/Board');
+const { getModels } = require('../utils/dbProvider');
 const jwt = require('jsonwebtoken');
 
 // Generate JWT Token
@@ -14,6 +13,7 @@ const generateToken = (id, boardId) => {
 // @access  Public
 exports.registerUser = async (req, res) => {
   try {
+    const { User, Board } = getModels();
     const { username, email, password } = req.body;
 
     // Check for empty fields
@@ -56,6 +56,7 @@ exports.registerUser = async (req, res) => {
       res.status(400).json({ success: false, message: 'Invalid user data' });
     }
   } catch (error) {
+    console.error('Register error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -65,6 +66,7 @@ exports.registerUser = async (req, res) => {
 // @access  Public
 exports.loginUser = async (req, res) => {
   try {
+    const { User, Board } = getModels();
     const { email, password } = req.body;
 
     // Check for email and password
@@ -73,7 +75,7 @@ exports.loginUser = async (req, res) => {
     }
 
     // Check for user
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email, select: '+password' });
 
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
@@ -81,28 +83,23 @@ exports.loginUser = async (req, res) => {
 
     // Check if password matches
     const isMatch = await user.matchPassword(password);
-// Find user's default board
-const board = await Board.findOne({ owner: user._id });
+    // Find user's default board
+    const board = await Board.findOne({ owner: user._id });
 
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     res.status(200).json({
-  success: true,
-  _id: user._id,
-  username: user.username,
-  email: user.email,
-  token: generateToken(user._id),
-  boardId: board ? board._id : null,
-});
-    
-    
-    
-    
-    
-    
+      success: true,
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      token: generateToken(user._id),
+      boardId: board ? board._id : null,
+    });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -112,13 +109,15 @@ const board = await Board.findOne({ owner: user._id });
 // @access  Private
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const { User, Board } = getModels();
+    const user = await User.findOne({ _id: req.user.id });
     const board = await Board.findOne({ owner: req.user.id });
     res.status(200).json({
       success: true,
-      data: { ...user.toObject(), boardId: board ? board._id : null },
+      data: { ...user, boardId: board ? board._id : null },
     });
   } catch (error) {
+    console.error('GetMe error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

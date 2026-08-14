@@ -1,12 +1,17 @@
 const mongoose = require('mongoose');
+const { setMockMode } = require('../utils/dbProvider');
 
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI);
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    setMockMode(false);
   } catch (error) {
-    console.error(`Error: ${error.message}`);
-    process.exit(1);
+    console.warn(`⚠️  MongoDB Connection Failed: ${error.message}`);
+    console.log('📦 Running in MOCK mode without persistent database storage');
+    console.log('   To enable MongoDB, install it or set MONGO_URI to a valid connection string');
+    setMockMode(true);
+    // Don't exit - allow the server to run in mock mode
   }
 };
 
