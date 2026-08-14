@@ -1,18 +1,75 @@
-// src/services/socket.js
 import { io } from 'socket.io-client';
 
 const SOCKET_URL = 'http://localhost:5000';
-export const socket = io(SOCKET_URL, {
-  // Auto‑reconnect is enabled by default
-  transports: ['websocket']
-});
 
-/**
- * Join a board room for real‑time updates.
- * @param {string} boardId - The board identifier to join.
- */
-export const joinBoard = (boardId) => {
-  if (boardId) {
-    socket.emit('join_board', boardId);
+let socket = null;
+
+// Reuses one connection for the whole app instead of opening a new socket
+// per component. Call connectSocket() once (e.g. after login / on board mount).
+export function connectSocket() {
+  if (socket && socket.connected) return socket;
+
+  const token = localStorage.getItem('token');
+  socket = io(SOCKET_URL, {
+    auth: { token },
+    autoConnect: true,
+  });
+
+  return socket;
+}
+
+export function disconnectSocket() {
+  if (socket) {
+    socket.disconnect();
+    socket = null;
   }
+}
+
+export function getSocket() {
+  return socket;
+}
+
+// Wraps a socket.emit(event, payload, ack) call in a Promise so callers can
+// `await` a real-time write the same way they'd await a fetch() call.
+function emitWithAck(event, payload, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    if (!socket) return reject(new Error('Socket not connected'));
+
+    const timer = setTimeout(() => {
+      reject(new Error(`Timed out waiting for "${event}" acknowledgement`));
+    }, timeoutMs);
+
+    socket.emit(event, payload, (response) => {
+      clearTimeout(timer);
+      resolve(response);
+    });
+  });
+}
+
+export const realtimeService = {
+  joinBoard(boardId) {
+    socket?.emit('board:join', { boardId });
+  },
+
+  leaveBoard(boardId) {
+    socket?.emit('board:leave', { boardId });
+  },
+
+  createTask(boardId, task) {
+    return emitWithAck('task:create', { boardId, task });
+  },
+
+  // updates: partial field changes (title, description, priority, etc.)
+  updateTask(taskId, boardId, version, updates) {
+    return emitWithAck('task:update', { taskId, boardId, version, updates });
+  },
+
+  // Convenience wrapper for the drag-and-drop column change specifically.
+  moveTask(taskId, boardId, version, status) {
+    return emitWithAck('task:move', { taskId, boardId, version, status });
+  },
+
+  deleteTask(taskId, boardId, version) {
+    return emitWithAck('task:delete', { taskId, boardId, version });
+  },
 };
