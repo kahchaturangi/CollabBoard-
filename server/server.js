@@ -1,7 +1,9 @@
 const express = require('express');
+const http = require('http');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const { initSocket } = require('./socket/socketServer');
 
 // Load env vars
 dotenv.config();
@@ -29,6 +31,12 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+// Socket.io needs the raw http server, not the express app directly,
+// so real-time connections and the REST API share the same port.
+const httpServer = http.createServer(app);
+initSocket(httpServer);
+
+httpServer.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  console.log('Socket.io real-time layer attached');
 });

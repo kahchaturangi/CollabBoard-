@@ -53,6 +53,13 @@ const taskSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+
+    // Used for optimistic-concurrency / conflict detection on real-time edits.
+    // Incremented by 1 on every successful update made through the socket layer.
+    version: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
