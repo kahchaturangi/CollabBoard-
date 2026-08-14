@@ -11,9 +11,8 @@ import { apiService } from './services/api';
 import { taskStorage, offlineQueue } from './services/storage';
 import { socket, joinBoard } from './services/socket';
 
-const BOARD_ID = 'default-board'; // adjust as needed
-
 export default function App() {
+  const [boardId, setBoardId] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [tasks, setTasks] = useState(INITIAL_TASKS);
   const [columns, setColumns] = useState(INITIAL_COLUMNS);
@@ -28,14 +27,17 @@ export default function App() {
   // Auto‑redirect if a valid token already exists (e.g., page refresh)
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const storedBoardId = localStorage.getItem('boardId') || sessionStorage.getItem('boardId');
     if (token) {
       setIsAuthenticated(true);
+      if (storedBoardId) setBoardId(storedBoardId);
     }
   }, []);
 
   // Join socket room and set up listeners
   useEffect(() => {
-    joinBoard(BOARD_ID);
+    // Join the user's board if available, otherwise fallback to default
+    joinBoard(boardId || 'default-board');
 
     const handleTaskEvent = (data) => {
       // data: { action: 'create'|'update'|'delete', task }
@@ -62,7 +64,7 @@ export default function App() {
       socket.off('task_updated', handleTaskEvent);
       socket.off('task_deleted', handleTaskEvent);
     };
-  }, []);
+  }, [boardId]);
 
   // Simple filtering (kept lightweight for demo)
   const filteredTasks = useMemo(() => {
@@ -106,7 +108,7 @@ export default function App() {
 
   return (
     <Router>
-      <Navbar setIsAuthenticated={setIsAuthenticated} />
+      <Navbar setIsAuthenticated={setIsAuthenticated} setBoardId={setBoardId} />
       <Routes>
         {/* Public routes – redirect if already logged in */}
         <Route
@@ -115,7 +117,7 @@ export default function App() {
             isAuthenticated ? (
               <Navigate to="/dashboard" replace />
             ) : (
-              <Login setIsAuthenticated={setIsAuthenticated} />
+              <Login setIsAuthenticated={setIsAuthenticated} setBoardId={setBoardId} />
             )
           }
         />
@@ -125,7 +127,7 @@ export default function App() {
             isAuthenticated ? (
               <Navigate to="/dashboard" replace />
             ) : (
-              <Register setIsAuthenticated={setIsAuthenticated} />
+              <Register setIsAuthenticated={setIsAuthenticated} setBoardId={setBoardId} />
             )
           }
         />
