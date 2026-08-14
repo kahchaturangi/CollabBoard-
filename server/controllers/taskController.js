@@ -57,6 +57,10 @@ exports.createTask = async (req, res) => {
     });
 
     const taskObj = { ...task.toObject(), id: task._id.toString() };
+    // Emit real-time update for task creation
+    if (global.io) {
+      global.io.to(board._id.toString()).emit('task_updated', { boardId: board._id, task: taskObj, action: 'create' });
+    }
     res.status(201).json({ success: true, data: taskObj });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -92,6 +96,10 @@ exports.updateTask = async (req, res) => {
     await task.save();
 
     const taskObj = { ...task.toObject(), id: task._id.toString() };
+  // Emit real-time update for task modification
+  if (global.io) {
+    global.io.to(board._id.toString()).emit('task_updated', { boardId: board._id, task: taskObj, action: 'update' });
+  }
     res.status(200).json({ success: true, data: taskObj });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -113,7 +121,12 @@ exports.deleteTask = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
 
+    // Emit real-time deletion event
+    if (global.io) {
+      global.io.to(board._id.toString()).emit('task_updated', { boardId: board._id, taskId: req.params.id, action: 'delete' });
+    }
     res.status(200).json({ success: true, message: 'Task deleted' });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

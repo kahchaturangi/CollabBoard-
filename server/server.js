@@ -39,6 +39,7 @@ const io = new Server(server, {
     methods: ["GET", "POST"]
   }
 });
+global.io = io;
 
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);

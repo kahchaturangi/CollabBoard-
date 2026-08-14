@@ -9,8 +9,36 @@ import TaskEditModal from './components/TaskEditModal';
 import { INITIAL_COLUMNS, INITIAL_TASKS } from './mockData';
 import { apiService } from './services/api';
 import { taskStorage, offlineQueue } from './services/storage';
+import { socket, joinBoard } from './services/socket';
 
-function Board({ tasks, setTasks, columns, searchQuery, setSearchQuery, selectedPriority, setSelectedPriority, selectedTag, setSelectedTag, availableTags, filteredTasks, handleDragEnd, handleOpenEditModal, handleDeleteTask, handleOpenAddModal, isModalOpen, setIsModalOpen, handleSaveTask, taskToEdit, defaultStatus, setAuth }) {
+
+function Board({ tasks, setTasks, columns, searchQuery, setSearchQuery, selectedPriority, setSelectedPriority, selectedTag, setSelectedTag, availableTags, filteredTasks, handleDragEnd, handleOpenEditModal, handleDeleteTask, handleOpenAddModal, isModalOpen, setIsModalOpen, handleSaveTask, taskToEdit, defaultStatus, setAuth, boardId }) {
+  // Join board and set up real-time listeners
+  useEffect(() => {
+    // Join the board room
+    joinBoard(boardId);
+    // Handle incoming task updates
+    const handleUpdate = (data) => {
+      // No board filtering – accept all updates
+      const { action, task, taskId } = data;
+      setTasks((prev) => {
+        switch (action) {
+          case 'create':
+            return [task, ...prev];
+          case 'update':
+            return prev.map((t) => (t.id === task.id ? task : t));
+          case 'delete':
+            return prev.filter((t) => t.id !== taskId);
+          default:
+            return prev;
+        }
+      });
+    };
+    socket.on('task_updated', handleUpdate);
+    return () => {
+      socket.off('task_updated', handleUpdate);
+    };
+  }, [boardId, setTasks]);
   return (
     <div className="app-container">
       <Navbar
@@ -112,7 +140,8 @@ useEffect(() => {
     flushAndLoad();
   }, [isAuthenticated]);
 
-  // Compute available tags for filter chips
+  const BOARD_ID = 'defaultBoard'; // TODO: replace with actual board ID per user
+
   const availableTags = useMemo(() => {
     const tagSet = new Set();
     tasks.forEach((t) => {
@@ -229,6 +258,7 @@ useEffect(() => {
                 isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} 
                 handleSaveTask={handleSaveTask} taskToEdit={taskToEdit} defaultStatus={defaultStatus}
                 setAuth={setIsAuthenticated}
+                boardId={BOARD_ID}
               />
             ) : <Navigate to="/login" />
           } 
