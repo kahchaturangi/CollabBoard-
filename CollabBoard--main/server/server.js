@@ -34,7 +34,10 @@ const PORT = process.env.PORT || 5000;
 // Socket.io needs the raw http server, not the express app directly,
 // so real-time connections and the REST API share the same port.
 const httpServer = http.createServer(app);
-initSocket(httpServer);
+const io = initSocket(httpServer);
+
+// Controllers වල use කරන්න io instance එක attach කිරීම
+app.set('io', io);
 
 httpServer.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
