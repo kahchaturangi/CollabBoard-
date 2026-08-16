@@ -58,8 +58,9 @@ exports.createTask = async (req, res) => {
 
     const taskObj = { ...task.toObject(), id: task._id.toString() };
     // Emit real-time update for task creation
-    if (global.io) {
-      global.io.to(board._id.toString()).emit('task_updated', { boardId: board._id, task: taskObj, action: 'create' });
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`board:${board._id.toString()}`).emit('task_created', { action: 'create', task: taskObj });
     }
     res.status(201).json({ success: true, data: taskObj });
   } catch (error) {
@@ -105,8 +106,9 @@ exports.updateTask = async (req, res) => {
 
     const taskObj = { ...task.toObject(), id: task._id.toString() };
     // Emit real-time update for task modification
-    if (global.io) {
-      global.io.to(board._id.toString()).emit('task_updated', { boardId: board._id, task: taskObj, action: 'update' });
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`board:${board._id.toString()}`).emit('task_updated', { action: 'update', task: taskObj });
     }
     res.status(200).json({ success: true, data: taskObj });
   } catch (error) {
@@ -130,8 +132,9 @@ exports.deleteTask = async (req, res) => {
     }
 
     // Emit real-time deletion event
-    if (global.io) {
-      global.io.to(board._id.toString()).emit('task_updated', { boardId: board._id, taskId: req.params.id, action: 'delete' });
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`board:${board._id.toString()}`).emit('task_deleted', { action: 'delete', task: { id: req.params.id } });
     }
     res.status(200).json({ success: true, message: 'Task deleted' });
 
