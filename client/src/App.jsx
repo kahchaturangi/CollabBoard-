@@ -43,6 +43,23 @@ export default function App() {
     }
   }, []);
 
+  // Replace demo tasks with the current user's board tasks once authenticated.
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+
+    let cancelled = false;
+
+    const loadTasks = async () => {
+      const remoteTasks = await apiService.fetchTasks();
+      if (!cancelled && remoteTasks) setTasks(remoteTasks);
+    };
+
+    loadTasks();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
+
   // Join socket room and set up listeners
   useEffect(() => {
     const socket = getSocket();

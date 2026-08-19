@@ -3,7 +3,7 @@ const API_BASE = 'http://localhost:5000/api';
 
 // Helper to get headers with JWT token
 const getHeaders = () => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
     ...(token && { Authorization: `Bearer ${token}` }),
