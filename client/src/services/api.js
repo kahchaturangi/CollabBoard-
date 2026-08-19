@@ -107,7 +107,7 @@ export const apiService = {
       return response.ok;
     } catch (error) {
       console.warn('Task deleted from local state only:', error.message);
-      return true;
+      return false;
     }
   },
 };

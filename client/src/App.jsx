@@ -111,10 +111,17 @@ export default function App() {
   };
 
   const handleDeleteTask = async (taskId) => {
+    const deletedTask = tasks.find((task) => task.id === taskId);
+    setTasks((currentTasks) => currentTasks.filter((task) => task.id !== taskId));
+
     try {
-      await apiService.deleteTask(taskId);
+      const deleted = await apiService.deleteTask(taskId);
+      if (!deleted && deletedTask) {
+        setTasks((currentTasks) => [...currentTasks, deletedTask]);
+      }
     } catch (err) {
       console.error(err);
+      if (deletedTask) setTasks((currentTasks) => [...currentTasks, deletedTask]);
     }
   };
 
@@ -125,11 +132,45 @@ export default function App() {
   };
 
   const handleSaveTask = async (task) => {
+    const isEditing = Boolean(task.id);
+
+    if (isEditing) {
+      setTasks((currentTasks) =>
+        currentTasks.map((currentTask) =>
+          currentTask.id === task.id ? { ...currentTask, ...task } : currentTask
+        )
+      );
+    }
+
     try {
-      if (task.id) {
-        await apiService.updateTask(task.id, task);
+      if (isEditing) {
+        const savedTask = await apiService.updateTask(task.id, task);
+        if (savedTask?.conflict && savedTask.current) {
+          setTasks((currentTasks) =>
+            currentTasks.map((currentTask) =>
+              currentTask.id === task.id ? savedTask.current : currentTask
+            )
+          );
+        } else if (savedTask?.id) {
+          setTasks((currentTasks) =>
+            currentTasks.map((currentTask) =>
+              currentTask.id === task.id ? savedTask : currentTask
+            )
+          );
+        }
       } else {
-        await apiService.createTask(task);
+        const optimisticId = `local-${Date.now()}`;
+        const optimisticTask = { ...task, id: optimisticId };
+        setTasks((currentTasks) => [...currentTasks, optimisticTask]);
+
+        const savedTask = await apiService.createTask(task);
+        if (savedTask?.id && savedTask.id !== optimisticId) {
+          setTasks((currentTasks) =>
+            currentTasks.map((currentTask) =>
+              currentTask.id === optimisticId ? savedTask : currentTask
+            )
+          );
+        }
       }
     } catch (err) {
       console.error(err);
