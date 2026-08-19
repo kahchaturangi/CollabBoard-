@@ -1,9 +1,24 @@
-import React from 'react';
-import { LayoutGrid, Plus, Sparkles, UserCheck } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronDown, LayoutGrid, LogOut, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Navbar({ onOpenAddModal, totalTasksCount, setIsAuthenticated, setBoardId }) {
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const navigate = useNavigate();
+  const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
+  let user = {};
+  try {
+    user = storedUser ? JSON.parse(storedUser) : {};
+  } catch {
+    user = {};
+  }
+  const displayName = user.username || 'Workspace member';
+  const initials = displayName
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -28,14 +43,41 @@ export default function Navbar({ onOpenAddModal, totalTasksCount, setIsAuthentic
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div className="navbar-actions">
         <button className="btn-add-task" onClick={onOpenAddModal}>
           <Plus size={18} />
           New Task
         </button>
-        <button onClick={handleLogout} style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}>
-          Logout
-        </button>
+        <div className="profile-menu-wrap">
+          <button
+            className="profile-trigger"
+            onClick={() => setIsProfileOpen((open) => !open)}
+            aria-expanded={isProfileOpen}
+            aria-label="Open user profile menu"
+          >
+            <span className="profile-avatar">{initials}</span>
+            <span className="profile-trigger-text">
+              <strong>{displayName}</strong>
+              <small>{user.email || 'Signed-in user'}</small>
+            </span>
+            <ChevronDown size={16} className={isProfileOpen ? 'profile-chevron open' : 'profile-chevron'} />
+          </button>
+          {isProfileOpen && (
+            <div className="profile-dropdown">
+              <div className="profile-dropdown-heading">
+                <span className="profile-avatar profile-avatar-large">{initials}</span>
+                <div>
+                  <strong>{displayName}</strong>
+                  <small>{user.email || 'Signed-in user'}</small>
+                </div>
+              </div>
+              <button className="profile-logout" onClick={handleLogout}>
+                <LogOut size={16} />
+                Log out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
