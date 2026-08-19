@@ -94,8 +94,9 @@ export default function App() {
     }
   };
 
-  const handleOpenAddModal = () => {
+  const handleOpenAddModal = (status = 'todo') => {
     setTaskToEdit(null);
+    setDefaultStatus(status);
     setIsModalOpen(true);
   };
 
@@ -113,7 +114,13 @@ export default function App() {
 
   return (
     <Router>
-      <Navbar setIsAuthenticated={setIsAuthenticated} setBoardId={setBoardId} />
+      {isAuthenticated && (
+        <Navbar
+          onOpenAddModal={handleOpenAddModal}
+          setIsAuthenticated={setIsAuthenticated}
+          setBoardId={setBoardId}
+        />
+      )}
       <Routes>
         {/* Public routes – redirect if already logged in */}
         <Route
@@ -161,8 +168,8 @@ export default function App() {
                 />
                 <TaskEditModal
                   isOpen={isModalOpen}
-                  setIsOpen={setIsModalOpen}
-                  task={taskToEdit}
+                  onClose={() => setIsModalOpen(false)}
+                  taskToEdit={taskToEdit}
                   onSave={handleSaveTask}
                   defaultStatus={defaultStatus}
                 />
