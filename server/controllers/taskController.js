@@ -77,7 +77,7 @@ exports.updateTask = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Board not found' });
     }
 
-    const { title, description, status, priority, tags, dueDate, version } = req.body;
+    const { title, description, status, priority, tags, dueDate, __v } = req.body;
 
     // Only update tasks that belong to the user's board (security check)
     let task = await Task.findOne({ _id: req.params.id, board: board._id });

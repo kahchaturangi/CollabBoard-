@@ -136,6 +136,46 @@ export default function App() {
     }
   };
 
+  const handleDragEnd = async (result) => {
+    const { source, destination, draggableId } = result;
+    if (!destination) return;
+    if (
+      source.droppableId === destination.droppableId &&
+      source.index === destination.index
+    ) {
+      return;
+    }
+
+    const tasksByColumn = Object.fromEntries(
+      columns.map((column) => [
+        column.id,
+        tasks.filter((task) => task.status === column.id),
+      ])
+    );
+    const movedTask = tasksByColumn[source.droppableId]?.splice(source.index, 1)[0];
+    if (!movedTask) return;
+
+    const originalStatus = movedTask.status;
+    const updatedTask = { ...movedTask, status: destination.droppableId };
+    tasksByColumn[destination.droppableId].splice(destination.index, 0, updatedTask);
+    setTasks(columns.flatMap((column) => tasksByColumn[column.id]));
+
+    if (originalStatus !== destination.droppableId) {
+      const savedTask = await apiService.updateTask(draggableId, {
+        status: destination.droppableId,
+        __v: movedTask.__v,
+      });
+
+      if (savedTask?.conflict && savedTask.current) {
+        setTasks((currentTasks) =>
+          currentTasks.map((task) =>
+            task.id === draggableId ? savedTask.current : task
+          )
+        );
+      }
+    }
+  };
+
   return (
     <>
       {isSplashVisible && <SplashScreen />}
@@ -187,7 +227,7 @@ export default function App() {
                 <KanbanBoard
                   columns={columns}
                   tasks={filteredTasks}
-                  onDragEnd={() => {}}
+                  onDragEnd={handleDragEnd}
                   onEditTask={handleOpenEditModal}
                   onDeleteTask={handleDeleteTask}
                   onQuickAddTask={handleOpenAddModal}
