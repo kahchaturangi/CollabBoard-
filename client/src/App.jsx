@@ -6,12 +6,14 @@ import Navbar from './components/Navbar';
 import FilterBar from './components/FilterBar';
 import KanbanBoard from './components/KanbanBoard';
 import TaskEditModal from './components/TaskEditModal';
+import SplashScreen from './components/SplashScreen';
 import { INITIAL_COLUMNS, INITIAL_TASKS } from './mockData';
 import { apiService } from './services/api';
 import { taskStorage, offlineQueue } from './services/storage';
 import { connectSocket, getSocket, joinBoard } from './services/socket';
 
 export default function App() {
+  const [isSplashVisible, setIsSplashVisible] = useState(true);
   const [boardId, setBoardId] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [tasks, setTasks] = useState(INITIAL_TASKS);
@@ -23,6 +25,11 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [defaultStatus, setDefaultStatus] = useState('todo');
+
+  useEffect(() => {
+    const splashTimer = window.setTimeout(() => setIsSplashVisible(false), 1800);
+    return () => window.clearTimeout(splashTimer);
+  }, []);
 
   // Auto‑redirect if a valid token already exists (e.g., page refresh)
   useEffect(() => {
@@ -113,7 +120,9 @@ export default function App() {
   };
 
   return (
-    <Router>
+    <>
+      {isSplashVisible && <SplashScreen />}
+      <Router>
       {isAuthenticated && (
         <Navbar
           onOpenAddModal={handleOpenAddModal}
@@ -191,6 +200,7 @@ export default function App() {
           }
         />
       </Routes>
-    </Router>
+      </Router>
+    </>
   );
 }
