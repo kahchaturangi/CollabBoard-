@@ -20,10 +20,12 @@ app.use(cors());
 // Route files
 const authRoutes = require('./routes/authRoutes');
 const taskRoutes = require('./routes/taskRoutes');
+const boardRoutes = require('./routes/boardRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/boards', boardRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is running...');
@@ -34,7 +36,7 @@ const PORT = process.env.PORT || 5000;
 // Socket.io needs the raw http server, not the express app directly,
 // so real-time connections and the REST API share the same port.
 const httpServer = http.createServer(app);
-initSocket(httpServer);
+global.io = initSocket(httpServer);
 
 httpServer.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);

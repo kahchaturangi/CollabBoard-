@@ -41,6 +41,17 @@ export const apiService = {
     return data;
   },
 
+  async addMember(email) {
+    const response = await fetch(`${API_BASE}/boards/members`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ email }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Could not add member');
+    return data;
+  },
+
   // ─── Tasks ───────────────────────────────────────────────────────────────
 
   async fetchTasks() {

@@ -6,11 +6,12 @@ import Navbar from './components/Navbar';
 import FilterBar from './components/FilterBar';
 import KanbanBoard from './components/KanbanBoard';
 import TaskEditModal from './components/TaskEditModal';
+import MemberModal from './components/MemberModal';
 import SplashScreen from './components/SplashScreen';
 import { INITIAL_COLUMNS, INITIAL_TASKS } from './mockData';
 import { apiService } from './services/api';
 import { taskStorage, offlineQueue } from './services/storage';
-import { connectSocket, getSocket, joinBoard } from './services/socket';
+import { connectSocket, joinBoard } from './services/socket';
 
 export default function App() {
   const [isSplashVisible, setIsSplashVisible] = useState(true);
@@ -25,6 +26,7 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [defaultStatus, setDefaultStatus] = useState('todo');
+  const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
 
   useEffect(() => {
     const splashTimer = window.setTimeout(() => setIsSplashVisible(false), 1800);
@@ -51,7 +53,16 @@ export default function App() {
 
     const loadTasks = async () => {
       const remoteTasks = await apiService.fetchTasks();
-      if (!cancelled && remoteTasks) setTasks(remoteTasks);
+      if (!cancelled && remoteTasks) {
+        setTasks((currentTasks) => {
+          const pendingTasks = currentTasks.filter((task) =>
+            task.id?.startsWith('local-')
+          );
+          const remoteIds = new Set(remoteTasks.map((task) => task.id));
+          const stillPending = pendingTasks.filter((task) => !remoteIds.has(task.id));
+          return [...remoteTasks, ...stillPending];
+        });
+      }
     };
 
     loadTasks();
@@ -62,38 +73,46 @@ export default function App() {
 
   // Join socket room and set up listeners
   useEffect(() => {
-    const socket = getSocket();
-    if (!socket) return;
+    if (!isAuthenticated) return undefined;
+
+    const socket = connectSocket();
+    if (!socket) return undefined;
 
     // Join the user's board if available, otherwise fallback to default
     joinBoard(boardId || 'default-board');
 
     const handleTaskEvent = (data) => {
-      // data: { action: 'create'|'update'|'delete', task }
+      const incomingTask = data.task
+        ? { ...data.task, id: data.task.id || data.task._id?.toString() }
+        : null;
+
       setTasks((prev) => {
-        switch (data.action) {
-          case 'create':
-            return [...prev, data.task];
-          case 'update':
-            return prev.map((t) => (t.id === data.task.id ? data.task : t));
-          case 'delete':
-            return prev.filter((t) => t.id !== data.task.id);
-          default:
-            return prev;
+        if (incomingTask?.id) {
+          const existingIndex = prev.findIndex((task) => task.id === incomingTask.id);
+          if (existingIndex === -1) return [...prev, incomingTask];
+          return prev.map((task) => (task.id === incomingTask.id ? incomingTask : task));
         }
+        if (data.taskId) return prev.filter((task) => task.id !== data.taskId);
+        return prev;
       });
     };
 
+    socket.on('task:created', handleTaskEvent);
+    socket.on('task:updated', handleTaskEvent);
+    socket.on('task:deleted', handleTaskEvent);
     socket.on('task_created', handleTaskEvent);
     socket.on('task_updated', handleTaskEvent);
     socket.on('task_deleted', handleTaskEvent);
 
     return () => {
+      socket.off('task:created', handleTaskEvent);
+      socket.off('task:updated', handleTaskEvent);
+      socket.off('task:deleted', handleTaskEvent);
       socket.off('task_created', handleTaskEvent);
       socket.off('task_updated', handleTaskEvent);
       socket.off('task_deleted', handleTaskEvent);
     };
-  }, [boardId]);
+  }, [isAuthenticated, boardId]);
 
   // Simple filtering (kept lightweight for demo)
   const filteredTasks = useMemo(() => {
@@ -224,6 +243,7 @@ export default function App() {
       {isAuthenticated && (
         <Navbar
           onOpenAddModal={handleOpenAddModal}
+          onOpenMemberModal={() => setIsMemberModalOpen(true)}
           setIsAuthenticated={setIsAuthenticated}
           setBoardId={setBoardId}
         />
@@ -279,6 +299,10 @@ export default function App() {
                   taskToEdit={taskToEdit}
                   onSave={handleSaveTask}
                   defaultStatus={defaultStatus}
+                />
+                <MemberModal
+                  isOpen={isMemberModalOpen}
+                  onClose={() => setIsMemberModalOpen(false)}
                 />
               </>
             ) : (

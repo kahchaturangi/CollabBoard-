@@ -3,7 +3,7 @@ const Board = require('../models/Board');
 
 // Helper — find the board that belongs to the requesting user
 const getUserBoard = async (userId) => {
-  return Board.findOne({ owner: userId });
+  return (await Board.findOne({ owner: userId })) || Board.findOne({ members: userId });
 };
 
 // @desc    Get all tasks for the current user's board
@@ -59,7 +59,7 @@ exports.createTask = async (req, res) => {
     const taskObj = { ...task.toObject(), id: task._id.toString() };
     // Emit real-time update for task creation
     if (global.io) {
-      global.io.to(board._id.toString()).emit('task_updated', { boardId: board._id, task: taskObj, action: 'create' });
+      global.io.to(`board:${board._id}`).emit('task:created', { task: taskObj });
     }
     res.status(201).json({ success: true, data: taskObj });
   } catch (error) {
@@ -106,7 +106,7 @@ exports.updateTask = async (req, res) => {
     const taskObj = { ...task.toObject(), id: task._id.toString() };
     // Emit real-time update for task modification
     if (global.io) {
-      global.io.to(board._id.toString()).emit('task_updated', { boardId: board._id, task: taskObj, action: 'update' });
+      global.io.to(`board:${board._id}`).emit('task:updated', { task: taskObj });
     }
     res.status(200).json({ success: true, data: taskObj });
   } catch (error) {
@@ -131,7 +131,7 @@ exports.deleteTask = async (req, res) => {
 
     // Emit real-time deletion event
     if (global.io) {
-      global.io.to(board._id.toString()).emit('task_updated', { boardId: board._id, taskId: req.params.id, action: 'delete' });
+      global.io.to(`board:${board._id}`).emit('task:deleted', { taskId: req.params.id });
     }
     res.status(200).json({ success: true, message: 'Task deleted' });
 

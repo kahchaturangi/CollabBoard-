@@ -84,7 +84,9 @@ exports.loginUser = async (req, res) => {
     // Check if password matches
     const isMatch = await user.matchPassword(password);
     // Find user's default board
-    const board = await Board.findOne({ owner: user._id });
+    const board =
+      (await Board.findOne({ owner: user._id })) ||
+      (await Board.findOne({ members: user._id }));
 
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });

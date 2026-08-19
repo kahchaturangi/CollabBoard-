@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { ChevronDown, LayoutGrid, LogOut, Plus } from 'lucide-react';
+import { ChevronDown, LayoutGrid, LogOut, Plus, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-export default function Navbar({ onOpenAddModal, totalTasksCount, setIsAuthenticated, setBoardId }) {
+export default function Navbar({ onOpenAddModal, onOpenMemberModal, totalTasksCount, setIsAuthenticated, setBoardId }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const navigate = useNavigate();
   const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
@@ -13,6 +13,7 @@ export default function Navbar({ onOpenAddModal, totalTasksCount, setIsAuthentic
     user = {};
   }
   const displayName = user.username || 'Workspace member';
+  const firstName = displayName.trim().split(/\s+/)[0] || 'there';
   const initials = displayName
     .split(/\s+/)
     .map((part) => part[0])
@@ -40,6 +41,7 @@ export default function Navbar({ onOpenAddModal, totalTasksCount, setIsAuthentic
         </div>
         <div>
           <h1 className="brand-title">CollabBoard</h1>
+          <p className="navbar-greeting">Hi, {firstName}</p>
         </div>
       </div>
 
@@ -47,6 +49,10 @@ export default function Navbar({ onOpenAddModal, totalTasksCount, setIsAuthentic
         <button className="btn-add-task" onClick={onOpenAddModal}>
           <Plus size={18} />
           New Task
+        </button>
+        <button className="btn-member" onClick={onOpenMemberModal} title="Add member">
+          <UserPlus size={17} />
+          <span>Add member</span>
         </button>
         <div className="profile-menu-wrap">
           <button

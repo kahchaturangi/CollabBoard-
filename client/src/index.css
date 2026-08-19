@@ -101,6 +101,13 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+.navbar-greeting {
+  margin: 2px 0 0;
+  color: #7d8baa;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
 
 .user-badge {
   display: flex;
@@ -731,6 +738,25 @@ body {
 .form-input, .form-textarea, .form-select { background: #f8faff; color: var(--text-main); border-color: #dbe3f1; }
 .btn-secondary { background: #eef2f8; color: #4e5b77; border: none; }
 .btn-primary { background: #4b2bea; }
+.btn-member {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 13px;
+  border: 1px solid #dbe3f1;
+  border-radius: 12px;
+  background: #f7f9fe;
+  color: #3853a9;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.btn-member:hover { border-color: #b9c9ee; background: #edf2ff; }
+.member-modal { max-width: 440px; }
+.member-modal-subtitle { margin-top: 4px; color: #7a87a4; font-size: 0.8rem; }
+.member-message { margin: 10px 0 0; color: #078b53; font-size: 0.8rem; font-weight: 700; }
+.member-message.error { color: #d0444d; }
 
 .navbar-actions {
   display: flex;
@@ -1142,9 +1168,12 @@ body {
 @media (max-width: 760px) {
   .navbar { margin: 8px; padding: 0 14px; }
   .brand-title { font-size: 1.2rem; }
+  .navbar-greeting { display: none; }
   .brand-section > div:last-child::after { display: none; }
   .navbar > div:last-child button:not(.btn-add-task) { display: none; }
   .navbar-actions { gap: 7px; }
+  .btn-member span { display: none; }
+  .btn-member { padding: 10px; }
   .profile-trigger { min-width: 42px; padding: 3px; }
   .profile-trigger-text, .profile-chevron { display: none; }
   .filter-bar { margin: 8px; padding: 14px; gap: 12px; }
