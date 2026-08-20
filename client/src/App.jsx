@@ -9,7 +9,7 @@ import TaskEditModal from './components/TaskEditModal';
 import { INITIAL_COLUMNS, INITIAL_TASKS } from './mockData';
 import { apiService } from './services/api';
 import { taskStorage, offlineQueue } from './services/storage';
-import { socket, joinBoard } from './services/socket';
+import { connectSocket, getSocket, joinBoard } from './services/socket';
 
 export default function App() {
   const [boardId, setBoardId] = useState(null);
@@ -38,6 +38,9 @@ export default function App() {
   useEffect(() => {
     // Join the user's board if available, otherwise fallback to default
     joinBoard(boardId || 'default-board');
+
+    const socket = getSocket();
+    if (!socket) return;
 
     const handleTaskEvent = (data) => {
       // data: { action: 'create'|'update'|'delete', task }

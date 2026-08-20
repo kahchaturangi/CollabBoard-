@@ -46,30 +46,35 @@ function emitWithAck(event, payload, timeoutMs = 5000) {
   });
 }
 
+export function joinBoard(boardId) {
+  socket?.emit('board:join', { boardId });
+}
+
+export function leaveBoard(boardId) {
+  socket?.emit('board:leave', { boardId });
+}
+
+export function createTask(boardId, task) {
+  return emitWithAck('task:create', { boardId, task });
+}
+
+export function updateTask(taskId, boardId, version, updates) {
+  return emitWithAck('task:update', { taskId, boardId, version, updates });
+}
+
+export function moveTask(taskId, boardId, version, status) {
+  return emitWithAck('task:move', { taskId, boardId, version, status });
+}
+
+export function deleteTask(taskId, boardId, version) {
+  return emitWithAck('task:delete', { taskId, boardId, version });
+}
+
 export const realtimeService = {
-  joinBoard(boardId) {
-    socket?.emit('board:join', { boardId });
-  },
-
-  leaveBoard(boardId) {
-    socket?.emit('board:leave', { boardId });
-  },
-
-  createTask(boardId, task) {
-    return emitWithAck('task:create', { boardId, task });
-  },
-
-  // updates: partial field changes (title, description, priority, etc.)
-  updateTask(taskId, boardId, version, updates) {
-    return emitWithAck('task:update', { taskId, boardId, version, updates });
-  },
-
-  // Convenience wrapper for the drag-and-drop column change specifically.
-  moveTask(taskId, boardId, version, status) {
-    return emitWithAck('task:move', { taskId, boardId, version, status });
-  },
-
-  deleteTask(taskId, boardId, version) {
-    return emitWithAck('task:delete', { taskId, boardId, version });
-  },
+  joinBoard,
+  leaveBoard,
+  createTask,
+  updateTask,
+  moveTask,
+  deleteTask,
 };
