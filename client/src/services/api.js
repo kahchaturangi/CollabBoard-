@@ -1,5 +1,5 @@
 // REST API Service with automatic fallback to local state / mock data
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = '/api';
 
 // Helper to get headers with JWT token
 const getHeaders = () => {
