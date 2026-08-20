@@ -28,11 +28,6 @@ export default function App() {
   const [defaultStatus, setDefaultStatus] = useState('todo');
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
 
-  useEffect(() => {
-    const splashTimer = window.setTimeout(() => setIsSplashVisible(false), 1800);
-    return () => window.clearTimeout(splashTimer);
-  }, []);
-
   // Auto‑redirect if a valid token already exists (e.g., page refresh)
   useEffect(() => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -237,10 +232,9 @@ export default function App() {
   };
 
   return (
-    <>
-      {isSplashVisible && <SplashScreen />}
-      <Router>
-      {isAuthenticated && (
+    <Router>
+      {isSplashVisible && <SplashScreen onFinish={() => setIsSplashVisible(false)} />}
+      {isAuthenticated && !isSplashVisible && (
         <Navbar
           onOpenAddModal={handleOpenAddModal}
           onOpenMemberModal={() => setIsMemberModalOpen(true)}
@@ -322,7 +316,6 @@ export default function App() {
           }
         />
       </Routes>
-      </Router>
-    </>
+    </Router>
   );
 }

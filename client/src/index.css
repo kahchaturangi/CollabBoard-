@@ -1182,3 +1182,43 @@ body {
   .board-container { padding: 8px; }
   .kanban-column { min-width: min(86vw, 320px); }
 }
+
+.splash-screen {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e8ecf1 100%);
+  color: #1a1a1a;
+  animation: none;
+}
+
+.splash-screen::before,
+.splash-screen::after,
+.splash-glow {
+  display: none;
+}
+
+.splash-content {
+  transform: none;
+  gap: 18px;
+  animation: splash-fade-in 0.9s ease-out both;
+}
+
+.splash-mark {
+  width: 88px;
+  height: 88px;
+  margin-bottom: 0;
+  border: 0;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #0066ff 0%, #0052cc 100%);
+  box-shadow: 0 14px 32px rgba(0, 102, 255, 0.24);
+  animation: none;
+}
+
+.splash-content h1 {
+  color: #1a1a1a;
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  letter-spacing: 0;
+}
+
+@keyframes splash-fade-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
