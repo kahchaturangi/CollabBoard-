@@ -624,3 +624,51 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.28);
 }
+
+/* Splash screen */
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e8ecf1 100%);
+}
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  animation: splash-fade-in 0.9s ease-out both;
+}
+
+.splash-logo {
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0066ff 0%, #0052cc 100%);
+  border-radius: 22px;
+  box-shadow: 0 14px 32px rgba(0, 102, 255, 0.24);
+}
+
+.splash-content h1 {
+  color: #1a1a1a;
+  font-family: var(--font-heading);
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+@keyframes splash-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
