@@ -74,7 +74,7 @@ export default function Login({ setIsAuthenticated, setBoardId }) {
               <User size={18} />
             </div>
             <input
-              type="email"
+              type="text"
               placeholder="Username / Email"
               required
               value={email}
