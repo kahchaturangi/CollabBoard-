@@ -6,14 +6,12 @@ import Navbar from './components/Navbar';
 import FilterBar from './components/FilterBar';
 import KanbanBoard from './components/KanbanBoard';
 import TaskEditModal from './components/TaskEditModal';
-import SplashScreen from './components/SplashScreen';
 import { INITIAL_COLUMNS, INITIAL_TASKS } from './mockData';
 import { apiService } from './services/api';
 import { taskStorage, offlineQueue } from './services/storage';
 import { connectSocket, getSocket, joinBoard } from './services/socket';
 
 export default function App() {
-  const [isSplashVisible, setIsSplashVisible] = useState(true);
   const [boardId, setBoardId] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [tasks, setTasks] = useState(INITIAL_TASKS);
@@ -33,16 +31,18 @@ export default function App() {
     if (token) {
       setIsAuthenticated(true);
       if (storedBoardId) setBoardId(storedBoardId);
+      // Initialize socket connection when authenticated
+      connectSocket();
     }
   }, []);
 
   // Join socket room and set up listeners
   useEffect(() => {
-    // Join the user's board if available, otherwise fallback to default
-    joinBoard(boardId || 'default-board');
-
     const socket = getSocket();
     if (!socket) return;
+
+    // Join the user's board if available, otherwise fallback to default
+    joinBoard(boardId || 'default-board');
 
     const handleTaskEvent = (data) => {
       // data: { action: 'create'|'update'|'delete', task }
@@ -113,10 +113,7 @@ export default function App() {
 
   return (
     <Router>
-      {isSplashVisible && <SplashScreen onFinish={() => setIsSplashVisible(false)} />}
-      {isAuthenticated && !isSplashVisible && (
-        <Navbar setIsAuthenticated={setIsAuthenticated} setBoardId={setBoardId} />
-      )}
+      <Navbar setIsAuthenticated={setIsAuthenticated} setBoardId={setBoardId} />
       <Routes>
         {/* Public routes – redirect if already logged in */}
         <Route

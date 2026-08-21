@@ -5,7 +5,7 @@ import { Plus } from 'lucide-react';
 
 export default function Column({ column, tasks, onEditTask, onDeleteTask, onQuickAddTask }) {
   return (
-    <div className={`kanban-column column-${column.id}`}>
+    <div className="kanban-column">
       <div className="column-header">
         <div className="column-title-group">
           <span className={`column-indicator ${column.colorIndicator}`}></span>
