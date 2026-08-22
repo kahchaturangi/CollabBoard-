@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LayoutGrid, Plus, Bell, Sun, Users, User, LogOut, Sparkles } from 'lucide-react';
+import { LayoutGrid, Plus, Bell, Sun, Moon, Users, User, LogOut, Sparkles, CheckCheck, X, Clock, UserCheck, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Navbar({
@@ -14,17 +14,49 @@ export default function Navbar({
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
 
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('theme') || 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
+
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef(null);
+  const [notifications, setNotifications] = useState([
+    { id: 1, type: 'task',    icon: 'alert',    title: 'New task assigned',      body: 'You have been assigned "Fix login bug" by Niro.',    time: '2m ago',  read: false },
+    { id: 2, type: 'member',  icon: 'user',     title: 'Team member joined',     body: 'Sahan Perera joined the CollabBoard workspace.',        time: '18m ago', read: false },
+    { id: 3, type: 'update',  icon: 'clock',    title: 'Task status updated',    body: '"Design Homepage" moved to In Review by Amaya.',        time: '1h ago',  read: false },
+    { id: 4, type: 'mention', icon: 'check',    title: 'You were mentioned',      body: 'Kavya mentioned you in a comment on "API Integration".', time: '3h ago',  read: true  },
+    { id: 5, type: 'task',    icon: 'alert',    title: 'Deadline approaching',   body: '"Database Schema" is due tomorrow at 5:00 PM.',          time: '5h ago',  read: true  },
+  ]);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const markAllRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markRead = (id) => setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+  const removeNotif = (id) => setNotifications((prev) => prev.filter((n) => n.id !== id));
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
         setIsUserMenuOpen(false);
       }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setIsNotifOpen(false);
+      }
     };
-    if (isUserMenuOpen) {
+    if (isUserMenuOpen || isNotifOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isUserMenuOpen]);
+  }, [isUserMenuOpen, isNotifOpen]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -113,14 +145,92 @@ export default function Navbar({
           </button>
         )}
 
-        <div className="nav-icon-btn bell-btn" title="Notifications">
-          <Bell size={19} />
-          <span className="notification-badge">3</span>
+        {/* Notification Bell Dropdown */}
+        <div className="notif-bell-wrapper" ref={notifRef}>
+          <button
+            type="button"
+            className={`nav-icon-btn bell-btn${unreadCount > 0 ? ' bell-has-unread' : ''}`}
+            title="Notifications"
+            onClick={() => setIsNotifOpen((p) => !p)}
+          >
+            <Bell size={20} className={unreadCount > 0 ? 'bell-ring-anim' : ''} />
+            {unreadCount > 0 && (
+              <span className="notification-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+            )}
+          </button>
+
+          {isNotifOpen && (
+            <div className="notif-dropdown">
+              <div className="notif-header">
+                <span className="notif-header-title">Notifications</span>
+                {unreadCount > 0 && (
+                  <button className="notif-mark-all" onClick={markAllRead} title="Mark all as read">
+                    <CheckCheck size={14} />
+                    <span>Mark all read</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="notif-list">
+                {notifications.length === 0 ? (
+                  <div className="notif-empty">
+                    <Bell size={32} strokeWidth={1.5} />
+                    <p>You're all caught up!</p>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className={`notif-item${n.read ? ' notif-read' : ''}`}
+                      onClick={() => markRead(n.id)}
+                    >
+                      <div className={`notif-icon-wrap notif-icon-${n.type}`}>
+                        {n.icon === 'alert'  && <AlertCircle size={15} />}
+                        {n.icon === 'user'   && <UserCheck   size={15} />}
+                        {n.icon === 'clock'  && <Clock       size={15} />}
+                        {n.icon === 'check'  && <CheckCheck  size={15} />}
+                      </div>
+                      <div className="notif-content">
+                        <p className="notif-title">{n.title}</p>
+                        <p className="notif-body">{n.body}</p>
+                        <span className="notif-time">{n.time}</span>
+                      </div>
+                      {!n.read && <span className="notif-unread-dot" />}
+                      <button
+                        className="notif-dismiss"
+                        onClick={(e) => { e.stopPropagation(); removeNotif(n.id); }}
+                        title="Dismiss"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {notifications.length > 0 && (
+                <div className="notif-footer">
+                  <button className="notif-view-all">View all notifications</button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="nav-icon-btn" title="Toggle Theme">
-          <Sun size={19} />
-        </div>
+        {/* Dark / Light Mode Toggle */}
+        <button
+          type="button"
+          className={`nav-icon-btn theme-toggle-btn ${theme === 'dark' ? 'is-dark' : 'is-light'}`}
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label="Toggle Theme"
+        >
+          {theme === 'dark' ? (
+            <Sun size={19} className="theme-icon sun-icon" />
+          ) : (
+            <Moon size={19} className="theme-icon moon-icon" />
+          )}
+        </button>
 
         {/* User Avatar & Dropdown Menu */}
         <div className="user-menu-wrapper" ref={userMenuRef}>
