@@ -9,231 +9,175 @@ import TaskEditModal from './components/TaskEditModal';
 import { INITIAL_COLUMNS, INITIAL_TASKS } from './mockData';
 import { apiService } from './services/api';
 import { taskStorage, offlineQueue } from './services/storage';
-
-function Board({ tasks, setTasks, columns, searchQuery, setSearchQuery, selectedPriority, setSelectedPriority, selectedTag, setSelectedTag, availableTags, filteredTasks, handleDragEnd, handleOpenEditModal, handleDeleteTask, handleOpenAddModal, isModalOpen, setIsModalOpen, handleSaveTask, taskToEdit, defaultStatus, setAuth }) {
-  return (
-    <div className="app-container">
-      <Navbar
-        onOpenAddModal={() => handleOpenAddModal('todo')}
-        totalTasksCount={tasks.length}
-      />
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 20px' }}>
-        <button 
-          onClick={() => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            setAuth(false);
-          }}
-          style={{ padding: '8px 16px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          Logout
-        </button>
-      </div>
-
-      <FilterBar
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        selectedPriority={selectedPriority}
-        setSelectedPriority={setSelectedPriority}
-        selectedTag={selectedTag}
-        setSelectedTag={setSelectedTag}
-        availableTags={availableTags}
-      />
-
-      <KanbanBoard
-        columns={columns}
-        tasks={filteredTasks}
-        onDragEnd={handleDragEnd}
-        onEditTask={handleOpenEditModal}
-        onDeleteTask={handleDeleteTask}
-        onQuickAddTask={handleOpenAddModal}
-      />
-
-      <TaskEditModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleSaveTask}
-        taskToEdit={taskToEdit}
-        defaultStatus={defaultStatus}
-      />
-    </div>
-  );
-}
+import { socket, joinBoard } from './services/socket';
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
-  
-  const [columns] = useState(INITIAL_COLUMNS);
-  const [tasks, setTasks] = useState(() => {
-  return taskStorage.loadTasks() || INITIAL_TASKS;
-});
-useEffect(() => {
-  taskStorage.saveTasks(tasks);
-}, [tasks]);
-
-  // Filter States
+  const [boardId, setBoardId] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const [columns, setColumns] = useState(INITIAL_COLUMNS);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPriority, setSelectedPriority] = useState('all');
-  const [selectedTag, setSelectedTag] = useState('all');
-
-  // Modal States
+  const [selectedPriority, setSelectedPriority] = useState('');
+  const [selectedTag, setSelectedTag] = useState('');
+  const [availableTags, setAvailableTags] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [defaultStatus, setDefaultStatus] = useState('todo');
 
-  // Flush any offline-queued writes, then load tasks from server
+  // Auto‑redirect if a valid token already exists (e.g., page refresh)
   useEffect(() => {
-    async function flushAndLoad() {
-      if (!isAuthenticated) return;
-
-      // Replay any ops queued while offline
-      if (offlineQueue.hasPending()) {
-        const ops = offlineQueue.drain();
-        for (const op of ops) {
-          try {
-            if (op.type === 'create') await apiService.createTask(op.payload);
-            else if (op.type === 'update') await apiService.updateTask(op.id, op.payload);
-            else if (op.type === 'delete') await apiService.deleteTask(op.id);
-          } catch (e) {
-            // If still offline, re-enqueue and stop
-            offlineQueue.enqueue(op);
-            console.warn('[Offline Queue] Still offline, re-queued op:', op.type);
-            break;
-          }
-        }
-      }
-
-      // Now fetch fresh data from server
-      const serverTasks = await apiService.fetchTasks();
-      if (serverTasks && Array.isArray(serverTasks) && serverTasks.length > 0) {
-        setTasks(serverTasks);
-      }
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const storedBoardId = localStorage.getItem('boardId') || sessionStorage.getItem('boardId');
+    if (token) {
+      setIsAuthenticated(true);
+      if (storedBoardId) setBoardId(storedBoardId);
     }
-    flushAndLoad();
-  }, [isAuthenticated]);
+  }, []);
 
-  // Compute available tags for filter chips
-  const availableTags = useMemo(() => {
-    const tagSet = new Set();
-    tasks.forEach((t) => {
-      if (t.tags) t.tags.forEach((tag) => tagSet.add(tag));
-    });
-    return Array.from(tagSet);
-  }, [tasks]);
+  // Join socket room and set up listeners
+  useEffect(() => {
+    // Join the user's board if available, otherwise fallback to default
+    joinBoard(boardId || 'default-board');
 
-  // Filter tasks based on Search, Priority, and Tag
+    const handleTaskEvent = (data) => {
+      // data: { action: 'create'|'update'|'delete', task }
+      setTasks((prev) => {
+        switch (data.action) {
+          case 'create':
+            return [...prev, data.task];
+          case 'update':
+            return prev.map((t) => (t.id === data.task.id ? data.task : t));
+          case 'delete':
+            return prev.filter((t) => t.id !== data.task.id);
+          default:
+            return prev;
+        }
+      });
+    };
+
+    socket.on('task_created', handleTaskEvent);
+    socket.on('task_updated', handleTaskEvent);
+    socket.on('task_deleted', handleTaskEvent);
+
+    return () => {
+      socket.off('task_created', handleTaskEvent);
+      socket.off('task_updated', handleTaskEvent);
+      socket.off('task_deleted', handleTaskEvent);
+    };
+  }, [boardId]);
+
+  // Simple filtering (kept lightweight for demo)
   const filteredTasks = useMemo(() => {
-    return tasks.filter((task) => {
-      const matchesSearch =
-        searchQuery.trim() === '' ||
-        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      const matchesPriority =
-        selectedPriority === 'all' || task.priority === selectedPriority;
-
-      const matchesTag =
-        selectedTag === 'all' || (task.tags && task.tags.includes(selectedTag));
-
+    return tasks.filter((t) => {
+      const matchesSearch = t.title?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesPriority = selectedPriority ? t.priority === selectedPriority : true;
+      const matchesTag = selectedTag ? t.tags?.includes(selectedTag) : true;
       return matchesSearch && matchesPriority && matchesTag;
     });
   }, [tasks, searchQuery, selectedPriority, selectedTag]);
-
-  // Drag and Drop Handler
-  const handleDragEnd = async (result) => {
-    const { destination, source, draggableId } = result;
-
-    if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
-
-    const updatedTasks = Array.from(tasks);
-    const draggedTaskIndex = updatedTasks.findIndex((t) => t.id === draggableId);
-    if (draggedTaskIndex === -1) return;
-
-    const [draggedTask] = updatedTasks.splice(draggedTaskIndex, 1);
-    const newStatus = destination.droppableId;
-    const updatedTask = { ...draggedTask, status: newStatus };
-
-    const destColumnTasks = updatedTasks.filter((t) => t.status === newStatus);
-    const nonDestTasks = updatedTasks.filter((t) => t.status !== newStatus);
-
-    destColumnTasks.splice(destination.index, 0, updatedTask);
-
-    const finalTasks = [...nonDestTasks, ...destColumnTasks];
-    setTasks(finalTasks);
-
-    await apiService.updateTask(updatedTask.id, { status: newStatus });
-  };
-
-  // Task CRUD Handlers
-  const handleOpenAddModal = (status = 'todo') => {
-    setTaskToEdit(null);
-    setDefaultStatus(status);
-    setIsModalOpen(true);
-  };
 
   const handleOpenEditModal = (task) => {
     setTaskToEdit(task);
     setIsModalOpen(true);
   };
 
-  const handleSaveTask = async (taskData) => {
-    if (taskToEdit) {
-      // Optimistic update
-      setTasks((prev) => prev.map((t) => (t.id === taskData.id ? taskData : t)));
-      const result = await apiService.updateTask(taskData.id, taskData);
-      if (!result || result === taskData) {
-        // Backend was offline — queue the write
-        offlineQueue.enqueue({ type: 'update', id: taskData.id, payload: taskData });
-      }
-    } else {
-      const tempId = `local-${Date.now()}`;
-      const newTask = { ...taskData, id: tempId };
-      setTasks((prev) => [newTask, ...prev]);
-      const result = await apiService.createTask(taskData);
-      if (!result || result === taskData) {
-        // Backend was offline — queue the write
-        offlineQueue.enqueue({ type: 'create', id: tempId, payload: taskData });
-      } else if (result.id && result.id !== tempId) {
-        // Replace temp ID with the real MongoDB _id
-        setTasks((prev) => prev.map((t) => (t.id === tempId ? result : t)));
-      }
+  const handleDeleteTask = async (taskId) => {
+    try {
+      await apiService.deleteTask(taskId);
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const handleDeleteTask = async (taskId) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
-    const ok = await apiService.deleteTask(taskId);
-    if (!ok) {
-      offlineQueue.enqueue({ type: 'delete', id: taskId, payload: {} });
+  const handleOpenAddModal = () => {
+    setTaskToEdit(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveTask = async (task) => {
+    try {
+      if (task.id) {
+        await apiService.updateTask(task.id, task);
+      } else {
+        await apiService.createTask(task);
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
   return (
     <Router>
+      <Navbar setIsAuthenticated={setIsAuthenticated} setBoardId={setBoardId} />
       <Routes>
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/board" /> : <Login setAuth={setIsAuthenticated} />} />
-        <Route path="/register" element={isAuthenticated ? <Navigate to="/board" /> : <Register setAuth={setIsAuthenticated} />} />
-        <Route 
-          path="/board" 
+        {/* Public routes – redirect if already logged in */}
+        <Route
+          path="/login"
           element={
             isAuthenticated ? (
-              <Board 
-                tasks={tasks} setTasks={setTasks} columns={columns} 
-                searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
-                selectedPriority={selectedPriority} setSelectedPriority={setSelectedPriority} 
-                selectedTag={selectedTag} setSelectedTag={setSelectedTag} 
-                availableTags={availableTags} filteredTasks={filteredTasks} 
-                handleDragEnd={handleDragEnd} handleOpenEditModal={handleOpenEditModal} 
-                handleDeleteTask={handleDeleteTask} handleOpenAddModal={handleOpenAddModal} 
-                isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} 
-                handleSaveTask={handleSaveTask} taskToEdit={taskToEdit} defaultStatus={defaultStatus}
-                setAuth={setIsAuthenticated}
-              />
-            ) : <Navigate to="/login" />
-          } 
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <Login setIsAuthenticated={setIsAuthenticated} setBoardId={setBoardId} />
+            )
+          }
         />
-        <Route path="/" element={<Navigate to={isAuthenticated ? "/board" : "/login"} />} />
+        <Route
+          path="/register"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <Register setIsAuthenticated={setIsAuthenticated} setBoardId={setBoardId} />
+            )
+          }
+        />
+        {/* Protected dashboard route */}
+        <Route
+          path="/dashboard"
+          element={
+            isAuthenticated ? (
+              <>
+                <FilterBar
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  selectedPriority={selectedPriority}
+                  setSelectedPriority={setSelectedPriority}
+                  selectedTag={selectedTag}
+                  setSelectedTag={setSelectedTag}
+                  availableTags={availableTags}
+                />
+                <KanbanBoard
+                  columns={columns}
+                  tasks={filteredTasks}
+                  onDragEnd={() => {}}
+                  onEditTask={handleOpenEditModal}
+                  onDeleteTask={handleDeleteTask}
+                  onQuickAddTask={handleOpenAddModal}
+                />
+                <TaskEditModal
+                  isOpen={isModalOpen}
+                  setIsOpen={setIsModalOpen}
+                  task={taskToEdit}
+                  onSave={handleSaveTask}
+                  defaultStatus={defaultStatus}
+                />
+              </>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+        {/* Catch‑all route – redirect based on auth state */}
+        <Route
+          path="*"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
       </Routes>
     </Router>
   );

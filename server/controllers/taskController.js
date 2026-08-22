@@ -39,7 +39,7 @@ exports.createTask = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Board not found. Please re-login.' });
     }
 
-    const { title, description, status, priority, tags, dueDate } = req.body;
+    const { title, description, status, priority, tags, dueDate, __v } = req.body;
 
     if (!title || title.trim() === '') {
       return res.status(400).json({ success: false, message: 'Task title is required' });
@@ -57,6 +57,10 @@ exports.createTask = async (req, res) => {
     });
 
     const taskObj = { ...task.toObject(), id: task._id.toString() };
+    // Emit real-time update for task creation
+    if (global.io) {
+      global.io.to(board._id.toString()).emit('task_updated', { boardId: board._id, task: taskObj, action: 'create' });
+    }
     res.status(201).json({ success: true, data: taskObj });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -73,13 +77,20 @@ exports.updateTask = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Board not found' });
     }
 
+    const { title, description, status, priority, tags, dueDate, version } = req.body;
+
     // Only update tasks that belong to the user's board (security check)
     let task = await Task.findOne({ _id: req.params.id, board: board._id });
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
 
-    const { title, description, status, priority, tags, dueDate } = req.body;
+    // Version check for optimistic concurrency
+    if (__v !== undefined && task.__v !== __v) {
+      // Send back the latest task data for client to reconcile
+      const latest = { ...task.toObject(), id: task._id.toString() };
+      return res.status(409).json({ success: false, message: 'Conflict: Task has been updated by another user', current: latest });
+    }
 
     // Only update fields that were actually provided
     if (title !== undefined) task.title = title;
@@ -88,10 +99,15 @@ exports.updateTask = async (req, res) => {
     if (priority !== undefined) task.priority = priority;
     if (tags !== undefined) task.tags = tags;
     if (dueDate !== undefined) task.dueDate = dueDate;
+    task.version = (task.version || 0) + 1;
 
     await task.save();
 
     const taskObj = { ...task.toObject(), id: task._id.toString() };
+    // Emit real-time update for task modification
+    if (global.io) {
+      global.io.to(board._id.toString()).emit('task_updated', { boardId: board._id, task: taskObj, action: 'update' });
+    }
     res.status(200).json({ success: true, data: taskObj });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -113,7 +129,12 @@ exports.deleteTask = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
 
+    // Emit real-time deletion event
+    if (global.io) {
+      global.io.to(board._id.toString()).emit('task_updated', { boardId: board._id, taskId: req.params.id, action: 'delete' });
+    }
     res.status(200).json({ success: true, message: 'Task deleted' });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

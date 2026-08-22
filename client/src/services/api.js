@@ -78,10 +78,19 @@ export const apiService = {
       const response = await fetch(`${API_BASE}/tasks/${id}`, {
         method: 'PUT',
         headers: getHeaders(),
-        body: JSON.stringify(updates),
+        body: JSON.stringify({
+          ...updates,
+          __v: updates.__v
+        }),
       });
-      if (!response.ok) throw new Error('Failed to update task');
+      
       const data = await response.json();
+      
+      if (response.status === 409) {
+        return { conflict: true, current: normalize(data.current) };
+      }
+      
+      if (!response.ok) throw new Error('Failed to update task');
       return normalize(data.data || data);
     } catch (error) {
       console.warn('Task updated in local state only:', error.message);
