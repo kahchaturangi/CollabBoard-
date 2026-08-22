@@ -4,18 +4,28 @@ const SOCKET_URL = 'http://localhost:5000';
 
 let socket = null;
 
-// Reuses one connection for the whole app instead of opening a new socket
-// per component. Call connectSocket() once (e.g. after login / on board mount).
-export function connectSocket() {
+// Initialize socket immediately when module loads
+function initializeSocket() {
   if (socket && socket.connected) return socket;
-
+  
   const token = localStorage.getItem('token');
   socket = io(SOCKET_URL, {
     auth: { token },
     autoConnect: true,
   });
-
+  
   return socket;
+}
+
+// Auto-initialize on module load if token exists
+if (typeof window !== 'undefined' && localStorage.getItem('token')) {
+  initializeSocket();
+}
+
+// Reuses one connection for the whole app instead of opening a new socket
+// per component. Call connectSocket() once (e.g. after login / on board mount).
+export function connectSocket() {
+  return initializeSocket();
 }
 
 export function disconnectSocket() {
@@ -27,6 +37,13 @@ export function disconnectSocket() {
 
 export function getSocket() {
   return socket;
+}
+
+// Export joinBoard for backward compatibility
+export function joinBoard(boardId) {
+  if (socket) {
+    socket.emit('board:join', { boardId });
+  }
 }
 
 // Wraps a socket.emit(event, payload, ack) call in a Promise so callers can
