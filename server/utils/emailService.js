@@ -6,16 +6,30 @@ async function getTransporter() {
   if (transporter) return transporter;
 
   // 1. If custom SMTP or Gmail is configured in environment
-  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-    transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+  if (process.env.SMTP_USER && process.env.SMTP_PASS && process.env.SMTP_USER !== 'your-email@gmail.com') {
+    const cleanPass = process.env.SMTP_PASS.replace(/\s+/g, '');
+    const isGmail = process.env.SMTP_SERVICE === 'gmail' || process.env.SMTP_USER.toLowerCase().includes('@gmail.com');
+
+    if (isGmail) {
+      transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.SMTP_USER.trim(),
+          pass: cleanPass,
+        },
+      });
+    } else {
+      transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: Number(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER.trim(),
+          pass: cleanPass,
+        },
+      });
+    }
+    console.log(`✉️ Live SMTP mailer active for: ${process.env.SMTP_USER}`);
     return transporter;
   }
 
