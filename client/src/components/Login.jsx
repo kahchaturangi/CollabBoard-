@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { apiService } from '../services/api';
-import { User, Lock, LayoutGrid } from 'lucide-react';
+import { User, Lock, LayoutGrid, ArrowRight } from 'lucide-react';
+import DayNightGreeting from './DayNightGreeting';
 import '../index.css';
 
 export default function Login({ setIsAuthenticated, setBoardId }) {
@@ -46,96 +47,94 @@ export default function Login({ setIsAuthenticated, setBoardId }) {
   };
 
   return (
-    <div className="auth-page">
-      
-      {/* Brand Logo Above Card */}
-      <div className="auth-brand">
-        <div className="auth-brand-logo">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="5" y="9" width="3" height="10" rx="1" fill="#5c5cfc" />
-            <rect x="11" y="5" width="3" height="14" rx="1" fill="#5c5cfc" />
-            <rect x="17" y="11" width="3" height="8" rx="1" fill="#5c5cfc" />
-          </svg>
-        </div>
-        <h1>CollabBoard</h1>
-      </div>
-
-      <div className="auth-card">
-        <div className="auth-header">
-          <h2>Welcome Back!</h2>
-          <p>Please log in to your account.</p>
-        </div>
+    <div className="auth-page-wrapper">
+      <div className="auth-dual-container">
         
-        <form onSubmit={handleLogin}>
-          {error && <div className="auth-error">{error}</div>}
+        {/* Animated Day/Night Greeting Left Panel */}
+        <DayNightGreeting />
+
+        {/* Login Form Right Panel */}
+        <div className="auth-form-card">
+          <div className="auth-brand-header">
+            <div className="auth-logo-icon">
+              <LayoutGrid size={22} color="#ffffff" />
+            </div>
+            <h2>CollabBoard</h2>
+          </div>
+
+          <div className="auth-title-section">
+            <h3>Account Sign In</h3>
+            <p>Welcome back! Please enter your details.</p>
+          </div>
           
-          <div className="auth-field">
-            <div className="auth-field-icon">
-              <User size={18} />
-            </div>
-            <input
-              type="text"
-              placeholder="Username / Email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="auth-input"
-            />
-          </div>
-
-          <div className="auth-field auth-field-password">
-            <div className="auth-field-icon">
-              <Lock size={18} />
-            </div>
-            <input
-              type="password"
-              placeholder="Password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="auth-input"
-            />
-          </div>
-
-          <div className="auth-options">
-            <div className="remember-option">
+          <form onSubmit={handleLogin}>
+            {error && (
+              <div className="auth-error-banner">
+                {error}
+              </div>
+            )}
+            
+            <div className="auth-input-group">
+              <div className="auth-input-icon">
+                <User size={18} />
+              </div>
               <input
-                type="checkbox"
-                id="rememberMe"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="remember-checkbox"
+                type="text"
+                placeholder="Username or Email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="username"
               />
-              <label htmlFor="rememberMe">Remember me</label>
             </div>
-            <a href="#" className="auth-link">Forgot Password?</a>
+
+            <div className="auth-input-group">
+              <div className="auth-input-icon">
+                <Lock size={18} />
+              </div>
+              <input
+                type="password"
+                placeholder="Password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+
+            <div className="auth-actions-row">
+              <label className="auth-remember-checkbox">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <span className="auth-custom-box"></span>
+                Remember me
+              </label>
+              <a href="#" className="auth-link">Forgot Password?</a>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="auth-submit-btn"
+            >
+              <span>{loading ? 'Signing in...' : 'Sign In to CollabBoard'}</span>
+              <ArrowRight size={18} />
+            </button>
+          </form>
+
+          <div className="auth-divider">
+            <span>or</span>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="auth-submit"
-          >
-            {loading ? 'Logging in...' : 'Login to CollabBoard'}
-          </button>
-        </form>
-
-        <div className="auth-divider">
-          <div></div>
-          <span>or</span>
-          <div></div>
-        </div>
-
-        <div className="auth-footer">
-          <p>
-            New member? Invite will be sent via your team admin (Niro). For Git Repo access, please use the provided credentials.
-          </p>
-          <p style={{ color: '#8a919e', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px 0' }}>
-            If you are the team leader (Niro), ensure you create the initial account and add your members in the admin panel later.
-          </p>
-          <Link to="/register" className="auth-link">
-            Create an Account
-          </Link>
+          <div className="auth-footer-nav">
+            <p>New to CollabBoard?</p>
+            <Link to="/register" className="auth-signup-link">
+              Create an Account
+            </Link>
+          </div>
         </div>
 
       </div>

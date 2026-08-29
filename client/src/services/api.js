@@ -1,9 +1,9 @@
 // REST API Service with automatic fallback to local state / mock data
-const API_BASE = '/api';
+const API_BASE = 'http://localhost:5000/api';
 
 // Helper to get headers with JWT token
 const getHeaders = () => {
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const token = localStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
     ...(token && { Authorization: `Bearer ${token}` }),
@@ -38,17 +38,6 @@ export const apiService = {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || 'Registration failed');
-    return data;
-  },
-
-  async addMember(email) {
-    const response = await fetch(`${API_BASE}/boards/members`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({ email }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || 'Could not add member');
     return data;
   },
 
@@ -118,7 +107,7 @@ export const apiService = {
       return response.ok;
     } catch (error) {
       console.warn('Task deleted from local state only:', error.message);
-      return false;
+      return true;
     }
   },
 };

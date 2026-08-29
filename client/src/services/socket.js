@@ -8,7 +8,7 @@ let socket = null;
 function initializeSocket() {
   if (socket && socket.connected) return socket;
   
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const token = localStorage.getItem('token');
   socket = io(SOCKET_URL, {
     auth: { token },
     autoConnect: true,
@@ -18,10 +18,7 @@ function initializeSocket() {
 }
 
 // Auto-initialize on module load if token exists
-if (
-  typeof window !== 'undefined' &&
-  (localStorage.getItem('token') || sessionStorage.getItem('token'))
-) {
+if (typeof window !== 'undefined' && localStorage.getItem('token')) {
   initializeSocket();
 }
 

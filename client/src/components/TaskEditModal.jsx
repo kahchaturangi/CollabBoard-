@@ -44,7 +44,7 @@ export default function TaskEditModal({ isOpen, onClose, onSave, taskToEdit, def
       : [];
 
     const taskData = {
-      ...(taskToEdit ? { id: taskToEdit.id } : {}),
+      id: taskToEdit ? taskToEdit.id : `task-${Date.now()}`,
       title: title.trim(),
       description: description.trim(),
       status,

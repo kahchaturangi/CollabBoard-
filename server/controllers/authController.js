@@ -75,9 +75,7 @@ exports.loginUser = async (req, res) => {
     }
 
     // Check for user
-    const user = await User.findOne({
-      $or: [{ email: email }, { username: email }]
-    }).select('+password');
+    const user = await User.findOne({ email, select: '+password' });
 
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
@@ -86,9 +84,7 @@ exports.loginUser = async (req, res) => {
     // Check if password matches
     const isMatch = await user.matchPassword(password);
     // Find user's default board
-    const board =
-      (await Board.findOne({ owner: user._id })) ||
-      (await Board.findOne({ members: user._id }));
+    const board = await Board.findOne({ owner: user._id });
 
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });

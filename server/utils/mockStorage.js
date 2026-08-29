@@ -35,11 +35,6 @@ const MockBoard = class {
     this.members = members;
     this.createdAt = new Date();
   }
-
-  async save() {
-    mockBoards.set(this._id, this);
-    return this;
-  }
 };
 
 const MockTask = class {
@@ -123,9 +118,6 @@ const mockStorage = {
           return board;
         }
         if (query._id && board._id === query._id) {
-          return board;
-        }
-        if (query.members && board.members.some((memberId) => String(memberId) === String(query.members))) {
           return board;
         }
       }

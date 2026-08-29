@@ -3,7 +3,7 @@ const Board = require('../models/Board');
 
 // Helper — find the board that belongs to the requesting user
 const getUserBoard = async (userId) => {
-  return (await Board.findOne({ owner: userId })) || Board.findOne({ members: userId });
+  return Board.findOne({ owner: userId });
 };
 
 // @desc    Get all tasks for the current user's board
@@ -58,8 +58,9 @@ exports.createTask = async (req, res) => {
 
     const taskObj = { ...task.toObject(), id: task._id.toString() };
     // Emit real-time update for task creation
-    if (global.io) {
-      global.io.to(`board:${board._id}`).emit('task:created', { task: taskObj });
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`board:${board._id.toString()}`).emit('task_created', { action: 'create', task: taskObj });
     }
     res.status(201).json({ success: true, data: taskObj });
   } catch (error) {
@@ -77,7 +78,7 @@ exports.updateTask = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Board not found' });
     }
 
-    const { title, description, status, priority, tags, dueDate, __v } = req.body;
+    const { title, description, status, priority, tags, dueDate, version } = req.body;
 
     // Only update tasks that belong to the user's board (security check)
     let task = await Task.findOne({ _id: req.params.id, board: board._id });
@@ -105,8 +106,9 @@ exports.updateTask = async (req, res) => {
 
     const taskObj = { ...task.toObject(), id: task._id.toString() };
     // Emit real-time update for task modification
-    if (global.io) {
-      global.io.to(`board:${board._id}`).emit('task:updated', { task: taskObj });
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`board:${board._id.toString()}`).emit('task_updated', { action: 'update', task: taskObj });
     }
     res.status(200).json({ success: true, data: taskObj });
   } catch (error) {
@@ -130,8 +132,9 @@ exports.deleteTask = async (req, res) => {
     }
 
     // Emit real-time deletion event
-    if (global.io) {
-      global.io.to(`board:${board._id}`).emit('task:deleted', { taskId: req.params.id });
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`board:${board._id.toString()}`).emit('task_deleted', { action: 'delete', task: { id: req.params.id } });
     }
     res.status(200).json({ success: true, message: 'Task deleted' });
 
