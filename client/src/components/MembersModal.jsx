@@ -19,18 +19,39 @@ export default function MembersModal({ isOpen, onClose, members = [], onAddMembe
   const [newRole, setNewRole] = useState('Member');
   const [copied, setCopied] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
+  const [inviteSuccess, setInviteSuccess] = useState('');
+  const [inviteError, setInviteError] = useState('');
 
   if (!isOpen) return null;
 
   const handleInvite = (e) => {
     e.preventDefault();
-    if (!newEmail.trim()) return;
+    setInviteError('');
+    setInviteSuccess('');
 
-    const name = newName.trim() || newEmail.split('@')[0];
+    const emailTrimmed = newEmail.trim();
+    if (!emailTrimmed) {
+      setInviteError('Please enter an email address.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailTrimmed)) {
+      setInviteError('Please enter a valid email address (e.g. alex@company.com).');
+      return;
+    }
+
+    const emailLower = emailTrimmed.toLowerCase();
+    if (members.some((m) => m && m.email && m.email.toLowerCase() === emailLower)) {
+      setInviteError('A member with this email is already in the workspace.');
+      return;
+    }
+
+    const name = newName.trim() || emailTrimmed.split('@')[0];
     const newMember = {
       id: `mem-${Date.now()}`,
       name: name,
-      email: newEmail.trim().toLowerCase(),
+      email: emailLower,
       role: newRole,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
       online: true,
@@ -40,6 +61,8 @@ export default function MembersModal({ isOpen, onClose, members = [], onAddMembe
     setNewEmail('');
     setNewName('');
     setNewRole('Member');
+    setInviteSuccess(`🎉 ${name} (${emailLower}) has been invited as ${newRole}!`);
+    setTimeout(() => setInviteSuccess(''), 4000);
   };
 
   const handleCopyLink = () => {
@@ -81,6 +104,19 @@ export default function MembersModal({ isOpen, onClose, members = [], onAddMembe
           <h3 className="members-section-title">
             <UserPlus size={15} /> Invite New Member
           </h3>
+
+          {inviteError && (
+            <div className="invite-alert error">
+              {inviteError}
+            </div>
+          )}
+
+          {inviteSuccess && (
+            <div className="invite-alert success">
+              {inviteSuccess}
+            </div>
+          )}
+
           <form className="invite-form" onSubmit={handleInvite}>
             <div className="invite-inputs-row">
               <div className="invite-input-group flex-2">
@@ -89,7 +125,10 @@ export default function MembersModal({ isOpen, onClose, members = [], onAddMembe
                   type="email"
                   placeholder="Email address (e.g. alex@team.com)"
                   value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
+                  onChange={(e) => {
+                    setNewEmail(e.target.value);
+                    if (inviteError) setInviteError('');
+                  }}
                   className="invite-input"
                   required
                 />
