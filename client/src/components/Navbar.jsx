@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { LayoutGrid, Plus, Bell, Sun, Moon, Users, User, LogOut, Sparkles, CheckCheck, X, Clock, UserCheck, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import sunImg from '../assets/sun.png';
+import moonCloudImg from '../assets/moon-cloud.png';
+import NotificationsModal from './NotificationsModal';
 
 export default function Navbar({
   onOpenAddModal,
@@ -13,6 +16,7 @@ export default function Navbar({
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
+  const [isAllNotifModalOpen, setIsAllNotifModalOpen] = useState(false);
 
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'light';
@@ -42,6 +46,7 @@ export default function Navbar({
   const markAllRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   const markRead = (id) => setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
   const removeNotif = (id) => setNotifications((prev) => prev.filter((n) => n.id !== id));
+  const clearAllNotifs = () => setNotifications([]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -76,6 +81,13 @@ export default function Navbar({
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
   };
 
+  // Time-based greeting calculation
+  const currentHour = new Date().getHours();
+  const isDayTime = currentHour >= 5 && currentHour < 19;
+  const greetingPhrase = isDayTime 
+    ? (currentHour < 12 ? 'Good Morning' : currentHour < 17 ? 'Good Afternoon' : 'Good Evening')
+    : 'Good Night';
+
   return (
     <header className="navbar">
       <div className="brand-section" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
@@ -85,6 +97,21 @@ export default function Navbar({
         <div className="brand-text">
           <h1 className="brand-title">CollabBoard</h1>
           <p className="brand-subtitle">Stay organized. Work together.</p>
+        </div>
+      </div>
+
+      {/* Dynamic Animated Greeting Badge in Navbar */}
+      <div className="nav-time-greeting-badge" title={`Time Greeting: ${greetingPhrase}`}>
+        <div className="nav-greeting-avatar-wrap">
+          <img 
+            src={isDayTime ? sunImg : moonCloudImg} 
+            alt={isDayTime ? 'Sun' : 'Moon'} 
+            className={`nav-greeting-icon ${isDayTime ? 'nav-sun-bob' : 'nav-moon-sway'}`} 
+          />
+        </div>
+        <div className="nav-greeting-text">
+          <span className="nav-greeting-label">{greetingPhrase},</span>
+          <span className="nav-greeting-name">{activeUser.name || 'Team'}</span>
         </div>
       </div>
 
@@ -210,7 +237,16 @@ export default function Navbar({
 
               {notifications.length > 0 && (
                 <div className="notif-footer">
-                  <button className="notif-view-all">View all notifications</button>
+                  <button
+                    type="button"
+                    className="notif-view-all"
+                    onClick={() => {
+                      setIsNotifOpen(false);
+                      setIsAllNotifModalOpen(true);
+                    }}
+                  >
+                    View all notifications
+                  </button>
                 </div>
               )}
             </div>
@@ -284,9 +320,17 @@ export default function Navbar({
           )}
         </div>
       </div>
+
+      {/* Full Notifications Modal */}
+      <NotificationsModal
+        isOpen={isAllNotifModalOpen}
+        onClose={() => setIsAllNotifModalOpen(false)}
+        notifications={notifications}
+        onMarkRead={markRead}
+        onMarkAllRead={markAllRead}
+        onRemoveNotif={removeNotif}
+        onClearAll={clearAllNotifs}
+      />
     </header>
   );
 }
-
-
-

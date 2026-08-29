@@ -1,0 +1,16 @@
+{
+  "name": "collabboard-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm --prefix server start\" \"npm --prefix client run dev\"",
+    "start": "node server/server.js",
+    "client": "npm --prefix client run dev",
+    "server": "npm --prefix server start",
+    "build": "npm --prefix client run build",
+    "test": "npm --prefix client run test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -28,15 +28,25 @@ const userSchema = new mongoose.Schema({
 // Hash password before saving to database
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
-    next();
+    if (typeof next === 'function') next();
+    return;
+  }
+  // If already hashed with bcrypt, do not re-hash
+  if (this.password && (this.password.startsWith('$2a$') || this.password.startsWith('$2b$'))) {
+    if (typeof next === 'function') next();
+    return;
   }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+  if (typeof next === 'function') next();
 });
 
 // Match user entered password to hashed password in database
 userSchema.methods.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+  if (this.password && (this.password.startsWith('$2a$') || this.password.startsWith('$2b$'))) {
+    return await bcrypt.compare(enteredPassword, this.password);
+  }
+  return enteredPassword === this.password;
 };
 
 module.exports = mongoose.model('User', userSchema);
