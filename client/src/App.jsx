@@ -308,6 +308,16 @@ export default function App() {
       <Router>
         <div className="app-container">
         <Routes>
+          <Route
+            path="/"
+            element={
+              isAuthenticated ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
           {/* Public routes – redirect if already logged in */}
           <Route
             path="/login"

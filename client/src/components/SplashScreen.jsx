@@ -24,6 +24,7 @@ const splashContainerStyle = {
   color: '#ffffff',
   fontFamily: 'Outfit, sans-serif',
   zIndex: 9999,
+  pointerEvents: 'none',
   animation: 'fadeOut 0.5s ease-in-out 1.5s forwards',
 };
 
@@ -50,5 +51,3 @@ const subtitleStyle = {
   fontSize: '16px',
   opacity: 0.9,
 };
-
-/* Add keyframes via global CSS (see index.css) */
