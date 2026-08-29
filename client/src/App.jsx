@@ -249,6 +249,12 @@ export default function App() {
     );
   };
 
+  const handleAcceptMember = (memberId) => {
+    setMembers((prev) =>
+      prev.map((m) => (m.id === memberId ? { ...m, status: 'active', online: true } : m))
+    );
+  };
+
   return (
     <>
       {showSplash ? <SplashScreen /> : null}
@@ -327,6 +333,7 @@ export default function App() {
                       onAddMember={handleAddMember}
                       onRemoveMember={handleRemoveMember}
                       onUpdateRole={handleUpdateRole}
+                      onAcceptMember={handleAcceptMember}
                     />
                   </main>
                 </>
@@ -363,6 +370,7 @@ export default function App() {
                       onAddMember={handleAddMember}
                       onRemoveMember={handleRemoveMember}
                       onUpdateRole={handleUpdateRole}
+                      onAcceptMember={handleAcceptMember}
                     />
                   </main>
                 </>

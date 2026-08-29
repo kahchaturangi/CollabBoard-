@@ -2153,6 +2153,136 @@ body {
   font-weight: 700;
 }
 
+/* Members Tab Filters */
+.members-tab-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 12px;
+}
+
+.members-tab-btn {
+  position: relative;
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 0.775rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.members-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.members-tab-btn.active {
+  background: #ffffff;
+  color: var(--brand-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.pending-badge-dot {
+  width: 6px;
+  height: 6px;
+  background: #f59e0b;
+  border-radius: 50%;
+}
+
+.member-row-card.is-pending {
+  background: #fffbeb;
+  border-color: #fef3c7;
+  border-left: 3px solid #f59e0b;
+}
+
+.member-row-card.is-pending:hover {
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+
+.avatar-pending {
+  opacity: 0.85;
+  filter: grayscale(20%);
+  border: 2px dashed #f59e0b !important;
+}
+
+.member-status-dot.pending {
+  background: #f59e0b;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-color: #ffffff;
+  width: 13px;
+  height: 13px;
+  bottom: -2px;
+  right: -2px;
+}
+
+.badge-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: #fef3c7;
+  color: #d97706;
+  font-size: 0.675rem;
+  font-weight: 700;
+  border: 1px solid #fde68a;
+}
+
+/* Pending Actions */
+.pending-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-pending-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  font-size: 0.725rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.btn-pending-action.btn-resend {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.btn-pending-action.btn-resend:hover {
+  background: #e0e7ff;
+  border-color: #c7d2fe;
+  color: #4338ca;
+}
+
+.btn-pending-action.btn-accept {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+.btn-pending-action.btn-accept:hover {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+}
+
 .role-owner {
   background: #fef3c7;
   color: #b45309;
@@ -3594,6 +3724,65 @@ body {
   background: rgba(34, 197, 94, 0.15);
   color: #86efac;
   border-color: rgba(34, 197, 94, 0.3);
+}
+
+[data-theme="dark"] .members-tab-filters {
+  background: #101624;
+}
+
+[data-theme="dark"] .members-tab-btn {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .members-tab-btn:hover {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .members-tab-btn.active {
+  background: #1e2638;
+  color: #818cf8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .member-row-card.is-pending {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
+  border-left: 3px solid #f59e0b;
+}
+
+[data-theme="dark"] .member-row-card.is-pending:hover {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+[data-theme="dark"] .badge-pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="dark"] .btn-pending-action.btn-resend {
+  background: #1e2638;
+  border-color: #28334e;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .btn-pending-action.btn-resend:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: #6366f1;
+  color: #818cf8;
+}
+
+[data-theme="dark"] .btn-pending-action.btn-accept {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+
+[data-theme="dark"] .btn-pending-action.btn-accept:hover {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
 }
 
 /* ─── Task Edit Modal Dark Mode ─── */

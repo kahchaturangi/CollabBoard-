@@ -4,21 +4,32 @@ import {
   UserPlus,
   Users,
   Mail,
-  Shield,
   Trash2,
   Copy,
   Check,
   Search,
   Crown,
   UserCheck,
+  Clock,
+  Send,
+  Sparkles,
 } from 'lucide-react';
 
-export default function MembersModal({ isOpen, onClose, members = [], onAddMember, onRemoveMember, onUpdateRole }) {
+export default function MembersModal({
+  isOpen,
+  onClose,
+  members = [],
+  onAddMember,
+  onRemoveMember,
+  onUpdateRole,
+  onAcceptMember,
+}) {
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState('Member');
   const [copied, setCopied] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
+  const [statusTab, setStatusTab] = useState('all'); // 'all' | 'active' | 'pending'
   const [inviteSuccess, setInviteSuccess] = useState('');
   const [inviteError, setInviteError] = useState('');
 
@@ -43,7 +54,7 @@ export default function MembersModal({ isOpen, onClose, members = [], onAddMembe
 
     const emailLower = emailTrimmed.toLowerCase();
     if (members.some((m) => m && m.email && m.email.toLowerCase() === emailLower)) {
-      setInviteError('A member with this email is already in the workspace.');
+      setInviteError('A member with this email already exists in the workspace.');
       return;
     }
 
@@ -54,15 +65,38 @@ export default function MembersModal({ isOpen, onClose, members = [], onAddMembe
       email: emailLower,
       role: newRole,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
-      online: true,
+      status: 'pending', // Pending until accepted!
+      online: false,
+      invitedAt: 'Just now',
     };
 
     if (onAddMember) onAddMember(newMember);
     setNewEmail('');
     setNewName('');
     setNewRole('Member');
-    setInviteSuccess(`🎉 ${name} (${emailLower}) has been invited as ${newRole}!`);
+    setInviteSuccess(`🎉 Invitation sent to ${name} (${emailLower})! Member is in Pending status.`);
     setTimeout(() => setInviteSuccess(''), 4000);
+  };
+
+  const handleResendInvite = (member) => {
+    setInviteSuccess(`📨 Invitation email resent to ${member.name} (${member.email})!`);
+    setTimeout(() => setInviteSuccess(''), 3500);
+  };
+
+  const handleAcceptInvite = (member) => {
+    if (onAcceptMember) {
+      onAcceptMember(member.id);
+      setInviteSuccess(`✅ ${member.name} (${member.email}) has accepted the invitation and joined the team!`);
+      setTimeout(() => setInviteSuccess(''), 3500);
+    }
+  };
+
+  const handleRevokeInvite = (memberId, memberName) => {
+    if (onRemoveMember) {
+      onRemoveMember(memberId);
+      setInviteSuccess(`🗑️ Invitation for ${memberName || 'member'} has been revoked.`);
+      setTimeout(() => setInviteSuccess(''), 3000);
+    }
   };
 
   const handleCopyLink = () => {
@@ -72,8 +106,16 @@ export default function MembersModal({ isOpen, onClose, members = [], onAddMembe
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const activeMembersCount = members.filter((m) => m && m.status !== 'pending').length;
+  const pendingMembersCount = members.filter((m) => m && m.status === 'pending').length;
+
   const filteredMembers = members.filter((m) => {
     if (!m) return false;
+    // Status tab filter
+    if (statusTab === 'active' && m.status === 'pending') return false;
+    if (statusTab === 'pending' && m.status !== 'pending') return false;
+
+    // Search query filter
     const q = (searchFilter || '').toLowerCase().trim();
     if (!q) return true;
     const nameMatch = m.name ? m.name.toLowerCase().includes(q) : false;
@@ -176,9 +218,30 @@ export default function MembersModal({ isOpen, onClose, members = [], onAddMembe
         {/* Members List Section */}
         <div className="members-list-container">
           <div className="members-list-header">
-            <div className="members-count-badge">
-              <UserCheck size={14} />
-              <span>{members.length} Active Members</span>
+            {/* Filter Tabs */}
+            <div className="members-tab-filters">
+              <button
+                type="button"
+                className={`members-tab-btn ${statusTab === 'all' ? 'active' : ''}`}
+                onClick={() => setStatusTab('all')}
+              >
+                All ({members.length})
+              </button>
+              <button
+                type="button"
+                className={`members-tab-btn ${statusTab === 'active' ? 'active' : ''}`}
+                onClick={() => setStatusTab('active')}
+              >
+                Active ({activeMembersCount})
+              </button>
+              <button
+                type="button"
+                className={`members-tab-btn ${statusTab === 'pending' ? 'active' : ''}`}
+                onClick={() => setStatusTab('pending')}
+              >
+                Pending ({pendingMembersCount})
+                {pendingMembersCount > 0 && <span className="pending-badge-dot" />}
+              </button>
             </div>
 
             <div className="members-search-wrapper">
@@ -196,24 +259,35 @@ export default function MembersModal({ isOpen, onClose, members = [], onAddMembe
           <div className="members-scrollable-list">
             {filteredMembers.length === 0 ? (
               <div className="no-members-found">
-                <p>No team members found matching "{searchFilter}"</p>
+                <p>No members found in this view {searchFilter && `matching "${searchFilter}"`}</p>
               </div>
             ) : (
               filteredMembers.map((member) => {
                 const isOwner = member.role === 'Owner';
+                const isPending = member.status === 'pending';
+
                 return (
-                  <div key={member.id} className="member-row-card">
+                  <div key={member.id} className={`member-row-card ${isPending ? 'is-pending' : ''}`}>
                     <div className="member-avatar-container">
                       <img
                         src={member.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.name}`}
                         alt={member.name}
-                        className="member-avatar-img"
+                        className={`member-avatar-img ${isPending ? 'avatar-pending' : ''}`}
                         onError={(e) => {
                           e.target.onerror = null;
                           e.target.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80';
                         }}
                       />
-                      <span className={`member-status-dot ${member.online !== false ? 'online' : 'offline'}`} />
+                      {isPending ? (
+                        <span className="member-status-dot pending" title="Pending Acceptance">
+                          <Clock size={8} />
+                        </span>
+                      ) : (
+                        <span
+                          className={`member-status-dot ${member.online !== false ? 'online' : 'offline'}`}
+                          title={member.online !== false ? 'Online' : 'Offline'}
+                        />
+                      )}
                     </div>
 
                     <div className="member-info-col">
@@ -224,34 +298,75 @@ export default function MembersModal({ isOpen, onClose, members = [], onAddMembe
                             <Crown size={12} /> Owner
                           </span>
                         )}
+                        {isPending && (
+                          <span className="badge-pending">
+                            <Clock size={11} /> Pending Invite
+                          </span>
+                        )}
                       </div>
                       <span className="member-email-text">{member.email}</span>
                     </div>
 
                     <div className="member-actions-col">
-                      {!isOwner ? (
-                        <select
-                          value={member.role || 'Member'}
-                          onChange={(e) => onUpdateRole && onUpdateRole(member.id, e.target.value)}
-                          className={`member-role-badge-select role-${(member.role || 'member').toLowerCase()}`}
-                        >
-                          <option value="Admin">Admin</option>
-                          <option value="Member">Member</option>
-                          <option value="Viewer">Viewer</option>
-                        </select>
+                      {isPending ? (
+                        <div className="pending-actions-group">
+                          <span className={`member-role-badge role-${(member.role || 'member').toLowerCase()}`}>
+                            {member.role || 'Member'}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn-pending-action btn-resend"
+                            onClick={() => handleResendInvite(member)}
+                            title="Resend Invitation Email"
+                          >
+                            <Send size={13} />
+                            <span>Resend</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-pending-action btn-accept"
+                            onClick={() => handleAcceptInvite(member)}
+                            title="Accept / Activate Member"
+                          >
+                            <Check size={13} />
+                            <span>Accept</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-remove-member"
+                            onClick={() => handleRevokeInvite(member.id, member.name)}
+                            title="Revoke Invitation"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       ) : (
-                        <span className="member-role-badge role-owner">Owner</span>
-                      )}
+                        <>
+                          {!isOwner ? (
+                            <select
+                              value={member.role || 'Member'}
+                              onChange={(e) => onUpdateRole && onUpdateRole(member.id, e.target.value)}
+                              className={`member-role-badge-select role-${(member.role || 'member').toLowerCase()}`}
+                            >
+                              <option value="Admin">Admin</option>
+                              <option value="Member">Member</option>
+                              <option value="Viewer">Viewer</option>
+                            </select>
+                          ) : (
+                            <span className="member-role-badge role-owner">Owner</span>
+                          )}
 
-                      {!isOwner && (
-                        <button
-                          type="button"
-                          className="btn-remove-member"
-                          onClick={() => onRemoveMember && onRemoveMember(member.id)}
-                          title="Remove member"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                          {!isOwner && (
+                            <button
+                              type="button"
+                              className="btn-remove-member"
+                              onClick={() => onRemoveMember && onRemoveMember(member.id)}
+                              title="Remove member"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
