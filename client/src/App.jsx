@@ -86,14 +86,61 @@ export default function App() {
       });
     };
 
+    const handleMemberAccepted = (data) => {
+      if (!data || !data.email) return;
+      console.log('⚡ Real-time Socket Event: Member Accepted', data);
+      setMembers((prev) => {
+        const emailLower = data.email.toLowerCase();
+        const exists = prev.some((m) => m && m.email && m.email.toLowerCase() === emailLower);
+
+        if (exists) {
+          return prev.map((m) =>
+            m && m.email && m.email.toLowerCase() === emailLower
+              ? { ...m, status: 'active', online: true, role: data.role || m.role }
+              : m
+          );
+        } else {
+          return [
+            ...prev,
+            {
+              id: `mem-${Date.now()}`,
+              name: data.name || emailLower.split('@')[0],
+              email: emailLower,
+              role: data.role || 'Member',
+              avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(data.name || emailLower)}`,
+              status: 'active',
+              online: true,
+            },
+          ];
+        }
+      });
+    };
+
+    const handleMemberInvited = (data) => {
+      if (!data || !data.email) return;
+      console.log('⚡ Real-time Socket Event: Member Invited', data);
+      setMembers((prev) => {
+        const emailLower = data.email.toLowerCase();
+        const exists = prev.some((m) => m && m.email && m.email.toLowerCase() === emailLower);
+        if (exists) return prev;
+        return [...prev, data];
+      });
+    };
+
     socket.on('task_created', handleTaskEvent);
     socket.on('task_updated', handleTaskEvent);
     socket.on('task_deleted', handleTaskEvent);
+    socket.on('member_accepted', handleMemberAccepted);
+    socket.on('member:accepted', handleMemberAccepted);
+    socket.on('member_invited', handleMemberInvited);
 
     return () => {
       socket.off('task_created', handleTaskEvent);
       socket.off('task_updated', handleTaskEvent);
       socket.off('task_deleted', handleTaskEvent);
+      socket.off('member_accepted', handleMemberAccepted);
+      socket.off('member:accepted', handleMemberAccepted);
+      socket.off('member_invited', handleMemberInvited);
     };
   }, [boardId]);
 
@@ -282,6 +329,7 @@ export default function App() {
               )
             }
           />
+          <Route path="/accept-invite" element={<AcceptInvite />} />
           {/* Protected dashboard route */}
           <Route
             path="/dashboard"
