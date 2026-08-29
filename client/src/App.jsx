@@ -9,6 +9,7 @@ import KanbanBoard from './components/KanbanBoard';
 import TaskEditModal from './components/TaskEditModal';
 import MembersModal from './components/MembersModal';
 import Profile from './components/Profile';
+import AcceptInvite from './components/AcceptInvite';
 import { INITIAL_COLUMNS, INITIAL_TASKS, INITIAL_MEMBERS } from './mockData';
 import { apiService } from './services/api';
 import { taskStorage, offlineQueue } from './services/storage';
