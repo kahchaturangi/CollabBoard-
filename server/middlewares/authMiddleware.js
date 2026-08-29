@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { getModels } = require('../utils/dbProvider');
+const { mockStorage } = require('../utils/mockStorage');
 
 exports.protect = async (req, res, next) => {
   let token;
@@ -13,10 +14,25 @@ exports.protect = async (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
 
       // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey123');
 
       // Get user from the token
-      req.user = await User.findById(decoded.id).select('-password');
+      const { User } = getModels();
+      let user = null;
+      try {
+        const q = User.findById(decoded.id);
+        if (q && typeof q.select === 'function') {
+          user = await q.select('-password');
+        } else {
+          user = await q;
+        }
+      } catch (e) {}
+
+      if (!user) {
+        user = await mockStorage.User.findById(decoded.id);
+      }
+
+      req.user = user;
 
       next();
     } catch (error) {

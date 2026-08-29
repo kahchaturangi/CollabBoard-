@@ -6,6 +6,12 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGO_URI);
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     setMockMode(false);
+    try {
+      const { syncDatabaseWithDisk } = require('../utils/syncStorage');
+      await syncDatabaseWithDisk();
+    } catch (syncErr) {
+      // Non-blocking disk sync
+    }
   } catch (error) {
     console.warn(`⚠️  MongoDB Connection Failed: ${error.message}`);
     console.log('📦 Running in MOCK mode without persistent database storage');

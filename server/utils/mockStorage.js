@@ -1,27 +1,81 @@
-// Mock storage for development without MongoDB
-// Users and boards are stored in memory (not persistent)
+// Mock storage with local JSON persistence for development without MongoDB
+// Users, boards, and tasks are persisted to server/data/local_db.json
+
+const fs = require('fs');
+const path = require('path');
+
+const dataDir = path.join(__dirname, '..', 'data');
+const dataFile = path.join(dataDir, 'local_db.json');
 
 const mockUsers = new Map();
 const mockBoards = new Map();
 const mockTasks = new Map();
-let userIdCounter = 1;
-let boardIdCounter = 1;
-let taskIdCounter = 1;
+
+// Helper to save to file
+const persistToDisk = () => {
+  try {
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    const data = {
+      users: Array.from(mockUsers.entries()),
+      boards: Array.from(mockBoards.entries()),
+      tasks: Array.from(mockTasks.entries()),
+    };
+    fs.writeFileSync(dataFile, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to persist mock DB:', err.message);
+  }
+};
+
+// Helper to load from file
+const loadFromDisk = () => {
+  try {
+    if (fs.existsSync(dataFile)) {
+      const raw = fs.readFileSync(dataFile, 'utf-8');
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.users)) {
+        for (const [k, v] of data.users) mockUsers.set(k, v);
+      }
+      if (Array.isArray(data.boards)) {
+        for (const [k, v] of data.boards) mockBoards.set(k, v);
+      }
+      if (Array.isArray(data.tasks)) {
+        for (const [k, v] of data.tasks) mockTasks.set(k, v);
+      }
+      console.log(`📦 Loaded ${mockUsers.size} users and ${mockBoards.size} boards from local storage.`);
+    }
+  } catch (err) {
+    console.error('Failed to load mock DB from file:', err.message);
+  }
+};
+
+// Initial load
+loadFromDisk();
+
+let userIdCounter = mockUsers.size + 1;
+let boardIdCounter = mockBoards.size + 1;
+let taskIdCounter = mockTasks.size + 1;
 
 // Helper to generate IDs
 const generateId = (prefix, counter) => {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`;
 };
+
+const bcrypt = require('bcryptjs');
 
 const MockUser = class {
   constructor(username, email, password) {
     this._id = generateId('user', userIdCounter++);
     this.username = username;
     this.email = email;
-    this.password = password; // In production, this should be hashed
+    this.password = password;
   }
 
   async matchPassword(password) {
+    if (this.password && (this.password.startsWith('$2a$') || this.password.startsWith('$2b$'))) {
+      return await bcrypt.compare(password, this.password);
+    }
     return this.password === password;
   }
 };
@@ -52,42 +106,57 @@ const MockTask = class {
   }
 };
 
-const QueryBuilder = class {
-  constructor(fn, includePassword = false) {
-    this.fn = fn;
-    this.includePassword = includePassword;
-  }
-
-  select(fields) {
-    if (fields && fields.includes('+password')) {
-      this.includePassword = true;
-    }
-    return this;
-  }
-
-  async exec() {
-    return this.fn();
-  }
-};
-
 const mockStorage = {
   // Users
   User: {
-    async findOne(query, options = {}) {
-      const select = options.select || query.select;
-      const includePassword = select && select.includes('+password');
+    findOne(query = {}, options = {}) {
+      let selectFields = options.select || query.select || '';
 
-      for (const [id, user] of mockUsers) {
-        if (query.email && user.email === query.email) {
-          if (includePassword) return user;
-          return { ...user, password: undefined };
+      const exec = async () => {
+        const includePassword = selectFields.includes('+password') || query.select?.includes('+password');
+        const emailQuery = query.email ? query.email.toLowerCase() : null;
+        const usernameQuery = query.username ? query.username.toLowerCase() : null;
+
+        for (const [id, user] of mockUsers) {
+          let matches = false;
+
+          if (query.$or && Array.isArray(query.$or)) {
+            matches = query.$or.some((cond) => {
+              if (cond.email && user.email?.toLowerCase() === cond.email.toLowerCase()) return true;
+              if (cond.username && user.username?.toLowerCase() === cond.username.toLowerCase()) return true;
+              if (cond._id && user._id === cond._id) return true;
+              return false;
+            });
+          } else if (emailQuery && user.email?.toLowerCase() === emailQuery) {
+            matches = true;
+          } else if (usernameQuery && user.username?.toLowerCase() === usernameQuery) {
+            matches = true;
+          } else if (query._id && user._id === query._id) {
+            matches = true;
+          }
+
+          if (matches) {
+            return {
+              ...user,
+              matchPassword: async (p) => {
+                if (user.password && (user.password.startsWith('$2a$') || user.password.startsWith('$2b$'))) {
+                  return await bcrypt.compare(p, user.password);
+                }
+                return user.password === p;
+              },
+              password: includePassword ? user.password : undefined,
+            };
+          }
         }
-        if (query._id && user._id === query._id) {
-          if (includePassword) return user;
-          return { ...user, password: undefined };
-        }
-      }
-      return null;
+        return null;
+      };
+
+      const promise = exec();
+      promise.select = (fields) => {
+        selectFields = fields;
+        return exec();
+      };
+      return promise;
     },
 
     select(fields) {
@@ -101,12 +170,39 @@ const mockStorage = {
 
     async create(userData) {
       const user = new MockUser(userData.username, userData.email, userData.password);
-      mockUsers.set(user._id, user);
+      mockUsers.set(user._id, {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        password: user.password,
+      });
+      persistToDisk();
       return user;
     },
 
-    async findById(id) {
-      return mockUsers.get(id) || null;
+    findById(id) {
+      let selectFields = '';
+      const exec = async () => {
+        const user = mockUsers.get(id);
+        if (!user) return null;
+        const includePassword = selectFields.includes('+password');
+        return {
+          ...user,
+          matchPassword: async (p) => {
+            if (user.password && (user.password.startsWith('$2a$') || user.password.startsWith('$2b$'))) {
+              return await bcrypt.compare(p, user.password);
+            }
+            return user.password === p;
+          },
+          password: includePassword ? user.password : undefined,
+        };
+      };
+      const promise = exec();
+      promise.select = (fields) => {
+        selectFields = fields;
+        return exec();
+      };
+      return promise;
     },
   },
 
@@ -132,6 +228,7 @@ const mockStorage = {
         boardData.members
       );
       mockBoards.set(board._id, board);
+      persistToDisk();
       return board;
     },
 
@@ -185,26 +282,28 @@ const mockStorage = {
         taskData.assignedTo
       );
       mockTasks.set(task._id, task);
+      persistToDisk();
       return task;
     },
 
     async findByIdAndUpdate(id, updates) {
-      const task = await this.findOne({ _id: id });
+      const task = mockTasks.get(id);
       if (!task) return null;
       Object.assign(task, updates);
       task.updatedAt = new Date();
+      persistToDisk();
       return task;
     },
 
     async findByIdAndDelete(id) {
-      const task = await this.findOne({ _id: id });
+      const task = mockTasks.get(id);
       if (!task) return null;
       mockTasks.delete(id);
+      persistToDisk();
       return task;
     },
   },
 
-  // Helper to check if we're in mock mode
   isMockMode: true,
 };
 
