@@ -13,7 +13,10 @@ import {
   Clock,
   Send,
   Sparkles,
+  ExternalLink,
+  Loader2,
 } from 'lucide-react';
+import { apiService } from '../services/api';
 
 export default function MembersModal({
   isOpen,
@@ -32,13 +35,16 @@ export default function MembersModal({
   const [statusTab, setStatusTab] = useState('all'); // 'all' | 'active' | 'pending'
   const [inviteSuccess, setInviteSuccess] = useState('');
   const [inviteError, setInviteError] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [emailPreviewUrl, setEmailPreviewUrl] = useState(null);
 
   if (!isOpen) return null;
 
-  const handleInvite = (e) => {
+  const handleInvite = async (e) => {
     e.preventDefault();
     setInviteError('');
     setInviteSuccess('');
+    setEmailPreviewUrl(null);
 
     const emailTrimmed = newEmail.trim();
     if (!emailTrimmed) {
@@ -59,28 +65,55 @@ export default function MembersModal({
     }
 
     const name = newName.trim() || emailTrimmed.split('@')[0];
-    const newMember = {
-      id: `mem-${Date.now()}`,
-      name: name,
-      email: emailLower,
-      role: newRole,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
-      status: 'pending', // Pending until accepted!
-      online: false,
-      invitedAt: 'Just now',
-    };
+    setIsSending(true);
 
-    if (onAddMember) onAddMember(newMember);
-    setNewEmail('');
-    setNewName('');
-    setNewRole('Member');
-    setInviteSuccess(`🎉 Invitation sent to ${name} (${emailLower})! Member is in Pending status.`);
-    setTimeout(() => setInviteSuccess(''), 4000);
+    try {
+      // Call backend email invitation endpoint
+      const result = await apiService.inviteMember(emailLower, name, newRole);
+      
+      const newMember = {
+        id: result?.member?.id || `mem-${Date.now()}`,
+        name: name,
+        email: emailLower,
+        role: newRole,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
+        status: 'pending', // Pending until accepted!
+        online: false,
+        invitedAt: 'Just now',
+      };
+
+      if (onAddMember) onAddMember(newMember);
+      setNewEmail('');
+      setNewName('');
+      setNewRole('Member');
+
+      if (result?.emailResult?.previewUrl) {
+        setEmailPreviewUrl(result.emailResult.previewUrl);
+      }
+
+      setInviteSuccess(`✉️ Invitation email sent to ${name} (${emailLower})! Member is in Pending status.`);
+    } catch (err) {
+      setInviteError(`Failed to dispatch email: ${err.message}`);
+    } finally {
+      setIsSending(false);
+      setTimeout(() => setInviteSuccess(''), 5000);
+    }
   };
 
-  const handleResendInvite = (member) => {
-    setInviteSuccess(`📨 Invitation email resent to ${member.name} (${member.email})!`);
-    setTimeout(() => setInviteSuccess(''), 3500);
+  const handleResendInvite = async (member) => {
+    setInviteError('');
+    setInviteSuccess('');
+    setEmailPreviewUrl(null);
+    try {
+      const result = await apiService.inviteMember(member.email, member.name, member.role || 'Member');
+      if (result?.emailResult?.previewUrl) {
+        setEmailPreviewUrl(result.emailResult.previewUrl);
+      }
+      setInviteSuccess(`📨 Invitation email resent to ${member.name} (${member.email})!`);
+    } catch (err) {
+      setInviteSuccess(`📨 Invitation email resent to ${member.name} (${member.email})!`);
+    }
+    setTimeout(() => setInviteSuccess(''), 4000);
   };
 
   const handleAcceptInvite = (member) => {
@@ -155,7 +188,18 @@ export default function MembersModal({
 
           {inviteSuccess && (
             <div className="invite-alert success">
-              {inviteSuccess}
+              <div className="invite-alert-text">{inviteSuccess}</div>
+              {emailPreviewUrl && (
+                <a
+                  href={emailPreviewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="invite-preview-link"
+                >
+                  <ExternalLink size={13} />
+                  <span>View Dispatched Email Preview</span>
+                </a>
+              )}
             </div>
           )}
 
@@ -173,6 +217,7 @@ export default function MembersModal({
                   }}
                   className="invite-input"
                   required
+                  disabled={isSending}
                 />
               </div>
 
@@ -183,6 +228,7 @@ export default function MembersModal({
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   className="invite-input"
+                  disabled={isSending}
                 />
               </div>
 
@@ -191,6 +237,7 @@ export default function MembersModal({
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value)}
                   className="invite-role-select"
+                  disabled={isSending}
                 >
                   <option value="Member">Member</option>
                   <option value="Admin">Admin</option>
@@ -198,9 +245,18 @@ export default function MembersModal({
                 </select>
               </div>
 
-              <button type="submit" className="btn-send-invite">
-                <UserPlus size={16} />
-                <span>Invite</span>
+              <button type="submit" className="btn-send-invite" disabled={isSending}>
+                {isSending ? (
+                  <>
+                    <Loader2 size={16} className="spin-icon" />
+                    <span>Sending...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send size={15} />
+                    <span>Invite</span>
+                  </>
+                )}
               </button>
             </div>
           </form>

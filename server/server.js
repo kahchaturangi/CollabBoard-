@@ -22,10 +22,12 @@ app.use(cors());
 // Route files
 const authRoutes = require('./routes/authRoutes');
 const taskRoutes = require('./routes/taskRoutes');
+const memberRoutes = require('./routes/memberRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/members', memberRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is running...');

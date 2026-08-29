@@ -1863,6 +1863,35 @@ body {
   border: 1px solid #86efac;
 }
 
+.invite-alert-text {
+  line-height: 1.4;
+}
+
+.invite-preview-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 0.725rem;
+  color: #047857;
+  text-decoration: underline;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.invite-preview-link:hover {
+  color: #065f46;
+}
+
+.spin-icon {
+  animation: spinAnimation 1s linear infinite;
+}
+
+@keyframes spinAnimation {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .invite-inputs-row {
   display: flex;
   gap: 8px;
