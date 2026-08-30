@@ -39,7 +39,7 @@ exports.createTask = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Board not found. Please re-login.' });
     }
 
-    const { title, description, status, priority, tags, dueDate, __v } = req.body;
+    const { title, description, status, priority, tags, dueDate } = req.body;
 
     if (!title || title.trim() === '') {
       return res.status(400).json({ success: false, message: 'Task title is required' });
@@ -54,12 +54,14 @@ exports.createTask = async (req, res) => {
       dueDate: dueDate || null,
       board: board._id,
       createdBy: req.user.id,
+      version: 0,
     });
 
     const taskObj = { ...task.toObject(), id: task._id.toString() };
     // Emit real-time update for task creation
     const io = req.app.get('io');
     if (io) {
+      io.to(`board:${board._id.toString()}`).emit('task:created', { task: taskObj });
       io.to(`board:${board._id.toString()}`).emit('task_created', { action: 'create', task: taskObj });
     }
     res.status(201).json({ success: true, data: taskObj });
@@ -86,11 +88,16 @@ exports.updateTask = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
 
-    // Version check for optimistic concurrency
-    if (__v !== undefined && task.__v !== __v) {
-      // Send back the latest task data for client to reconcile
+    // Version check for optimistic concurrency / conflict detection
+    if (typeof version === 'number' && task.version !== undefined && task.version !== version) {
       const latest = { ...task.toObject(), id: task._id.toString() };
-      return res.status(409).json({ success: false, message: 'Conflict: Task has been updated by another user', current: latest });
+      return res.status(409).json({
+        success: false,
+        error: 'conflict',
+        message: 'Conflict: Task has been updated by another user',
+        current: latest,
+        task: latest,
+      });
     }
 
     // Only update fields that were actually provided
@@ -108,6 +115,7 @@ exports.updateTask = async (req, res) => {
     // Emit real-time update for task modification
     const io = req.app.get('io');
     if (io) {
+      io.to(`board:${board._id.toString()}`).emit('task:updated', { task: taskObj });
       io.to(`board:${board._id.toString()}`).emit('task_updated', { action: 'update', task: taskObj });
     }
     res.status(200).json({ success: true, data: taskObj });
@@ -134,11 +142,12 @@ exports.deleteTask = async (req, res) => {
     // Emit real-time deletion event
     const io = req.app.get('io');
     if (io) {
+      io.to(`board:${board._id.toString()}`).emit('task:deleted', { taskId: req.params.id, task: { id: req.params.id } });
       io.to(`board:${board._id.toString()}`).emit('task_deleted', { action: 'delete', task: { id: req.params.id } });
     }
     res.status(200).json({ success: true, message: 'Task deleted' });
-
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+

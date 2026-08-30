@@ -3,7 +3,7 @@ import { connectSocket, disconnectSocket, realtimeService } from '../services/so
 
 // Normalizes an id whether it came from mock data (`id`) or MongoDB (`_id`).
 function taskKey(task) {
-  return task?._id || task?.id;
+  return String(task?._id || task?.id || '');
 }
 
 /**
@@ -14,10 +14,6 @@ function taskKey(task) {
  * - Exposes `conflict`, populated whenever a write this client made was
  *   rejected because someone else updated the task first. The UI is
  *   responsible for showing it (e.g. a banner with "reload" / "discard").
- *
- * Usage in App.jsx:
- *   const { conflict, clearConflict, moveTask, updateTask, createTask, deleteTask }
- *     = useRealtimeSync(boardId, setTasks);
  */
 export function useRealtimeSync(boardId, setTasks) {
   const [conflict, setConflict] = useState(null);
@@ -34,68 +30,84 @@ export function useRealtimeSync(boardId, setTasks) {
     if (socket.connected) join();
     socket.on('connect', join);
 
-    const onCreated = ({ task }) => {
+    const onCreated = (data) => {
+      const task = data.task || data;
+      if (!task) return;
       setTasks((prev) => {
         if (prev.some((t) => taskKey(t) === taskKey(task))) return prev;
         return [task, ...prev];
       });
     };
 
-    const onUpdated = ({ task }) => {
+    const onUpdated = (data) => {
+      const task = data.task || data;
+      if (!task) return;
       setTasks((prev) => prev.map((t) => (taskKey(t) === taskKey(task) ? task : t)));
     };
 
-    const onDeleted = ({ taskId }) => {
-      setTasks((prev) => prev.filter((t) => taskKey(t) !== taskId));
+    const onDeleted = (data) => {
+      const targetId = String(data.taskId || data.task?.id || data.id || '');
+      if (!targetId) return;
+      setTasks((prev) => prev.filter((t) => taskKey(t) !== targetId));
     };
 
-    const onPresence = ({ userIds }) => setOnlineUserIds(userIds);
+    const onPresence = ({ userIds }) => setOnlineUserIds(userIds || []);
 
     socket.on('task:created', onCreated);
+    socket.on('task_created', onCreated);
     socket.on('task:updated', onUpdated);
+    socket.on('task_updated', onUpdated);
     socket.on('task:deleted', onDeleted);
+    socket.on('task_deleted', onDeleted);
     socket.on('presence:update', onPresence);
 
     return () => {
       socket.off('connect', join);
       socket.off('task:created', onCreated);
+      socket.off('task_created', onCreated);
       socket.off('task:updated', onUpdated);
+      socket.off('task_updated', onUpdated);
       socket.off('task:deleted', onDeleted);
+      socket.off('task_deleted', onDeleted);
       socket.off('presence:update', onPresence);
       realtimeService.leaveBoard(boardId);
     };
   }, [boardId, setTasks]);
 
   useEffect(() => {
-    // Only tear the whole socket down when the component that owns the
-    // board view unmounts entirely (e.g. logout), not on every re-render.
     return () => disconnectSocket();
   }, []);
 
   const clearConflict = useCallback(() => setConflict(null), []);
 
-  // Each of these resolves the optimistic local state OR surfaces a conflict.
-  // `task` must include the `version` the client last saw.
   const moveTask = useCallback(
     async (task, newStatus) => {
-      const res = await realtimeService.moveTask(taskKey(task), boardId, task.version, newStatus);
-      if (!res.success && res.error === 'conflict') {
+      const version = task.version ?? 0;
+      const res = await realtimeService.moveTask(taskKey(task), boardId, version, newStatus);
+      if (res && !res.success && res.error === 'conflict') {
+        if (res.task) {
+          setTasks((prev) => prev.map((t) => (taskKey(t) === taskKey(res.task) ? res.task : t)));
+        }
         setConflict({ type: 'move', local: task, server: res.task });
       }
       return res;
     },
-    [boardId]
+    [boardId, setTasks]
   );
 
   const updateTask = useCallback(
     async (task, updates) => {
-      const res = await realtimeService.updateTask(taskKey(task), boardId, task.version, updates);
-      if (!res.success && res.error === 'conflict') {
+      const version = task.version ?? 0;
+      const res = await realtimeService.updateTask(taskKey(task), boardId, version, updates);
+      if (res && !res.success && res.error === 'conflict') {
+        if (res.task) {
+          setTasks((prev) => prev.map((t) => (taskKey(t) === taskKey(res.task) ? res.task : t)));
+        }
         setConflict({ type: 'update', local: task, server: res.task });
       }
       return res;
     },
-    [boardId]
+    [boardId, setTasks]
   );
 
   const createTask = useCallback(
@@ -107,14 +119,19 @@ export function useRealtimeSync(boardId, setTasks) {
 
   const deleteTask = useCallback(
     async (task) => {
-      const res = await realtimeService.deleteTask(taskKey(task), boardId, task.version);
-      if (!res.success && res.error === 'conflict') {
+      const version = task?.version ?? 0;
+      const res = await realtimeService.deleteTask(taskKey(task), boardId, version);
+      if (res && !res.success && res.error === 'conflict') {
+        if (res.task) {
+          setTasks((prev) => prev.map((t) => (taskKey(t) === taskKey(res.task) ? res.task : t)));
+        }
         setConflict({ type: 'delete', local: task, server: res.task });
       }
       return res;
     },
-    [boardId]
+    [boardId, setTasks]
   );
 
   return { conflict, clearConflict, onlineUserIds, moveTask, updateTask, createTask, deleteTask };
 }
+

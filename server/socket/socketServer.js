@@ -22,12 +22,6 @@ const Task = require('../models/Task');
  *   task:deleted  { taskId }
  *   presence:update { userIds: [...] }  (who's currently viewing the board)
  *
- * ack(response) shape
- *   success: { success: true, task }
- *   conflict: { success: false, error: 'conflict', task }   <- `task` is the CURRENT server copy
- *   not found: { success: false, error: 'not_found' }
- *   invalid: { success: false, error: 'invalid', message }
- *
  * Conflict detection strategy
  * ----------------------------
  * Every Task carries a numeric `version`. The client always sends back the
@@ -38,8 +32,6 @@ const Task = require('../models/Task');
  *                   ack back the CURRENT server copy so the client can show
  *                   the user what actually changed instead of silently
  *                   overwriting it.
- * This satisfies the brief's "detect a conflicting update and surface it
- * rather than silently overwriting data" requirement.
  */
 
 function authenticateSocket(socket, next) {
@@ -52,7 +44,7 @@ function authenticateSocket(socket, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
     socket.userId = decoded.id;
     next();
   } catch (err) {
@@ -74,15 +66,17 @@ function initSocket(httpServer) {
 
   io.use(authenticateSocket);
 
-  // boardId -> Set of userId currently in the room, for a lightweight presence indicator
+  // boardId -> Set of userId currently in the room, for presence indicator
   const presence = new Map();
 
   io.on('connection', async (socket) => {
     let user = null;
     try {
-      user = await User.findById(socket.userId).select('-password');
+      if (socket.userId) {
+        user = await User.findById(socket.userId).select('-password');
+      }
     } catch (err) {
-      // If the user lookup fails we still keep the connection but skip presence info
+      // Ignore user lookup failure
     }
 
     socket.on('board:join', ({ boardId }) => {
@@ -112,9 +106,12 @@ function initSocket(httpServer) {
           ...task,
           board: boardId,
           createdBy: socket.userId,
+          version: 0,
         });
-        io.to(boardRoom(boardId)).emit('task:created', { task: created });
-        ack?.({ success: true, task: created });
+        const normalized = { ...created.toObject(), id: created._id.toString() };
+        io.to(boardRoom(boardId)).emit('task:created', { task: normalized });
+        io.to(boardRoom(boardId)).emit('task_created', { action: 'create', task: normalized });
+        ack?.({ success: true, task: normalized });
       } catch (err) {
         ack?.({ success: false, error: 'invalid', message: err.message });
       }
@@ -142,12 +139,14 @@ function initSocket(httpServer) {
         const task = await Task.findById(taskId);
         if (!task) return ack?.({ success: false, error: 'not_found' });
 
-        if (typeof version === 'number' && task.version !== version) {
-          return ack?.({ success: false, error: 'conflict', task });
+        if (typeof version === 'number' && task.version !== undefined && task.version !== version) {
+          const serverTaskObj = { ...task.toObject(), id: task._id.toString() };
+          return ack?.({ success: false, error: 'conflict', task: serverTaskObj });
         }
 
         await Task.findByIdAndDelete(taskId);
-        io.to(boardRoom(boardId)).emit('task:deleted', { taskId });
+        io.to(boardRoom(boardId)).emit('task:deleted', { taskId, task: { id: taskId } });
+        io.to(boardRoom(boardId)).emit('task_deleted', { action: 'delete', task: { id: taskId } });
         ack?.({ success: true });
       } catch (err) {
         ack?.({ success: false, error: 'invalid', message: err.message });
@@ -177,16 +176,21 @@ async function handleVersionedWrite({ io, socket, payload, ack, applyUpdates }) 
     }
 
     // Conflict check: the client must be editing the version it actually saw.
-    if (typeof version === 'number' && task.version !== version) {
-      return ack?.({ success: false, error: 'conflict', task });
+    if (typeof version === 'number' && task.version !== undefined && task.version !== version) {
+      const serverTaskObj = { ...task.toObject(), id: task._id.toString() };
+      return ack?.({ success: false, error: 'conflict', task: serverTaskObj });
     }
 
-    Object.assign(task, applyUpdates);
-    task.version += 1;
+    if (applyUpdates) {
+      Object.assign(task, applyUpdates);
+    }
+    task.version = (task.version || 0) + 1;
     await task.save();
 
-    io.to(boardRoom(boardId)).emit('task:updated', { task });
-    ack?.({ success: true, task });
+    const normalizedTask = { ...task.toObject(), id: task._id.toString() };
+    io.to(boardRoom(boardId)).emit('task:updated', { task: normalizedTask });
+    io.to(boardRoom(boardId)).emit('task_updated', { action: 'update', task: normalizedTask });
+    ack?.({ success: true, task: normalizedTask });
   } catch (err) {
     ack?.({ success: false, error: 'invalid', message: err.message });
   }
@@ -202,3 +206,4 @@ function leaveBoard(socket, boardId, presence, io) {
 }
 
 module.exports = { initSocket };
+

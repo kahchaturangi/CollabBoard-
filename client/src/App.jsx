@@ -10,10 +10,11 @@ import TaskEditModal from './components/TaskEditModal';
 import MembersModal from './components/MembersModal';
 import Profile from './components/Profile';
 import AcceptInvite from './components/AcceptInvite';
+import ConflictBanner from './components/ConflictBanner';
+import { useRealtimeSync } from './hooks/useRealtimeSync';
 import { INITIAL_COLUMNS, INITIAL_TASKS, INITIAL_MEMBERS } from './mockData';
 import { apiService } from './services/api';
-import { taskStorage, offlineQueue } from './services/storage';
-import { connectSocket, getSocket, joinBoard } from './services/socket';
+import { connectSocket, getSocket } from './services/socket';
 
 export default function App() {
   const [boardId, setBoardId] = useState(null);
@@ -34,6 +35,17 @@ export default function App() {
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [defaultStatus, setDefaultStatus] = useState('todo');
   const [showSplash, setShowSplash] = useState(true);
+
+  // Real-time WebSocket sync & concurrency conflict handler
+  const {
+    conflict,
+    clearConflict,
+    onlineUserIds,
+    moveTask,
+    updateTask,
+    createTask,
+    deleteTask,
+  } = useRealtimeSync(boardId || 'default-board', setTasks);
 
   // Auto‑redirect if a valid token already exists (e.g., page refresh)
   useEffect(() => {
@@ -63,29 +75,10 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
-  // Join socket room and set up listeners
+  // Set up listeners for member events
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-
-    // Join the user's board if available, otherwise fallback to default
-    joinBoard(boardId || 'default-board');
-
-    const handleTaskEvent = (data) => {
-      // data: { action: 'create'|'update'|'delete', task }
-      setTasks((prev) => {
-        switch (data.action) {
-          case 'create':
-            return [...prev, data.task];
-          case 'update':
-            return prev.map((t) => (t.id === data.task.id ? data.task : t));
-          case 'delete':
-            return prev.filter((t) => t.id !== data.task.id);
-          default:
-            return prev;
-        }
-      });
-    };
 
     const handleMemberAccepted = (data) => {
       if (!data || !data.email) return;
@@ -128,22 +121,16 @@ export default function App() {
       });
     };
 
-    socket.on('task_created', handleTaskEvent);
-    socket.on('task_updated', handleTaskEvent);
-    socket.on('task_deleted', handleTaskEvent);
     socket.on('member_accepted', handleMemberAccepted);
     socket.on('member:accepted', handleMemberAccepted);
     socket.on('member_invited', handleMemberInvited);
 
     return () => {
-      socket.off('task_created', handleTaskEvent);
-      socket.off('task_updated', handleTaskEvent);
-      socket.off('task_deleted', handleTaskEvent);
       socket.off('member_accepted', handleMemberAccepted);
       socket.off('member:accepted', handleMemberAccepted);
       socket.off('member_invited', handleMemberInvited);
     };
-  }, [boardId]);
+  }, []);
 
   // Extract unique available tags from tasks
   const availableTags = useMemo(() => {
@@ -160,7 +147,7 @@ export default function App() {
   const availableAssignees = useMemo(() => {
     const set = new Set();
     tasks.forEach((t) => {
-      if (t.assignee && t.assignee.trim()) {
+      if (t.assignee && typeof t.assignee === 'string' && t.assignee.trim()) {
         set.add(t.assignee.trim());
       }
     });
@@ -191,7 +178,7 @@ export default function App() {
       const matchesAssignee =
         !selectedAssignee ||
         selectedAssignee === 'all' ||
-        (t.assignee && t.assignee.toLowerCase() === selectedAssignee.toLowerCase());
+        (t.assignee && typeof t.assignee === 'string' && t.assignee.toLowerCase() === selectedAssignee.toLowerCase());
 
       return matchesSearch && matchesPriority && matchesTag && matchesAssignee;
     });
@@ -230,10 +217,21 @@ export default function App() {
 
   const handleDeleteTask = async (taskId) => {
     try {
-      setTasks((prev) => prev.filter((t) => (t.id || t._id) !== taskId));
-      await apiService.deleteTask(taskId);
+      const taskToDelete = tasks.find((t) => String(t.id || t._id) === String(taskId));
+      setTasks((prev) => prev.filter((t) => String(t.id || t._id) !== String(taskId)));
+
+      if (taskToDelete) {
+        const res = await deleteTask(taskToDelete);
+        if (!res || !res.success) {
+          if (res?.error !== 'conflict') {
+            await apiService.deleteTask(taskId);
+          }
+        }
+      } else {
+        await apiService.deleteTask(taskId);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Delete task error:', err);
     }
   };
 
@@ -243,22 +241,39 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  const handleSaveTask = async (task) => {
+  const handleSaveTask = async (taskData) => {
     try {
-      const taskId = task.id || task._id;
-      if (taskId && tasks.some((t) => (t.id || t._id) === taskId)) {
-        setTasks((prev) => prev.map((t) => ((t.id || t._id) === taskId ? task : t)));
-        await apiService.updateTask(taskId, task);
+      const taskId = taskData.id || taskData._id;
+      const existingTask = tasks.find((t) => String(t.id || t._id) === String(taskId));
+
+      if (taskId && existingTask) {
+        // Optimistic UI update
+        const updatedTask = { ...existingTask, ...taskData };
+        setTasks((prev) =>
+          prev.map((t) => (String(t.id || t._id) === String(taskId) ? updatedTask : t))
+        );
+
+        const res = await updateTask(existingTask, taskData);
+        if (!res || !res.success) {
+          if (res?.error !== 'conflict') {
+            await apiService.updateTask(taskId, taskData);
+          }
+        }
       } else {
         const newTask = {
-          ...task,
-          id: task.id || `task-${Date.now()}`,
+          ...taskData,
+          id: taskData.id || `task-${Date.now()}`,
+          version: 0,
         };
-        setTasks((prev) => [...prev, newTask]);
-        await apiService.createTask(newTask);
+        setTasks((prev) => [newTask, ...prev]);
+
+        const res = await createTask(newTask);
+        if (!res || !res.success) {
+          await apiService.createTask(newTask);
+        }
       }
     } catch (err) {
-      console.error(err);
+      console.error('Save task error:', err);
     }
   };
 
@@ -277,9 +292,19 @@ export default function App() {
     );
 
     try {
-      await apiService.updateTask(task.id || task._id, updatedTask);
+      const res = await moveTask(task, newStatus);
+      if (!res || !res.success) {
+        if (res?.error !== 'conflict') {
+          await apiService.updateTask(task.id || task._id, updatedTask);
+        }
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Drag end move socket error, falling back to API:', err);
+      try {
+        await apiService.updateTask(task.id || task._id, updatedTask);
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
@@ -356,6 +381,7 @@ export default function App() {
                     setBoardId={setBoardId}
                   />
                   <main className="dashboard-content">
+                    <ConflictBanner conflict={conflict} onDismiss={clearConflict} />
                     <FilterBar
                       searchQuery={searchQuery}
                       setSearchQuery={setSearchQuery}
