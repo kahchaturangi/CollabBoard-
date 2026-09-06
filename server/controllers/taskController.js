@@ -1,9 +1,31 @@
-const Task = require('../models/Task');
-const Board = require('../models/Board');
+const { getModels } = require('../utils/dbProvider');
 
 // Helper — find the board that belongs to the requesting user
 const getUserBoard = async (userId) => {
-  return Board.findOne({ owner: userId });
+  const { Board } = getModels();
+  let board = null;
+  try {
+    board = await Board.findOne({ owner: userId });
+    if (!board) {
+      board = await Board.findOne({ members: userId });
+    }
+  } catch (e) {
+    // Ignore error and try fallback
+  }
+
+  if (!board) {
+    try {
+      board = await Board.create({
+        name: 'My Board',
+        description: 'Default project board',
+        owner: userId,
+        members: [userId],
+      });
+    } catch (err) {
+      board = await Board.findOne();
+    }
+  }
+  return board;
 };
 
 // @desc    Get all tasks for the current user's board
@@ -11,17 +33,31 @@ const getUserBoard = async (userId) => {
 // @access  Private
 exports.getTasks = async (req, res) => {
   try {
-    const board = await getUserBoard(req.user.id);
+    const userId = req.user?.id || req.user?._id?.toString();
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Not authorized. Please login again.' });
+    }
+
+    const board = await getUserBoard(userId);
     if (!board) {
       return res.status(404).json({ success: false, message: 'Board not found' });
     }
 
-    const tasks = await Task.find({ board: board._id })
-      .populate('assignee', 'username email')
-      .sort({ createdAt: -1 });
+    const { Task } = getModels();
+    let query = Task.find({ board: board._id });
+    if (typeof query.populate === 'function') {
+      query = query.populate('assignee', 'username email');
+    }
+    if (typeof query.sort === 'function') {
+      query = query.sort({ createdAt: -1 });
+    }
+    const tasks = await query;
 
     // Normalize _id → id for the React client
-    const normalized = tasks.map((t) => ({ ...t.toObject(), id: t._id.toString() }));
+    const normalized = (tasks || []).map((t) => {
+      const obj = typeof t.toObject === 'function' ? t.toObject() : { ...t };
+      return { ...obj, id: (obj._id || obj.id).toString() };
+    });
 
     res.status(200).json({ success: true, data: normalized });
   } catch (error) {
@@ -34,7 +70,12 @@ exports.getTasks = async (req, res) => {
 // @access  Private
 exports.createTask = async (req, res) => {
   try {
-    const board = await getUserBoard(req.user.id);
+    const userId = req.user?.id || req.user?._id?.toString();
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Not authorized. Please login again.' });
+    }
+
+    const board = await getUserBoard(userId);
     if (!board) {
       return res.status(404).json({ success: false, message: 'Board not found. Please re-login.' });
     }
@@ -45,6 +86,7 @@ exports.createTask = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Task title is required' });
     }
 
+    const { Task } = getModels();
     const task = await Task.create({
       title: title.trim(),
       description: description || '',
@@ -52,12 +94,13 @@ exports.createTask = async (req, res) => {
       priority: priority || 'medium',
       tags: tags || [],
       dueDate: dueDate || null,
-      board: board._id,
-      createdBy: req.user.id,
+      board: board._id || board.id,
+      createdBy: userId,
       version: 0,
     });
 
-    const taskObj = { ...task.toObject(), id: task._id.toString() };
+    const rawObj = typeof task.toObject === 'function' ? task.toObject() : { ...task };
+    const taskObj = { ...rawObj, id: (rawObj._id || rawObj.id).toString() };
     // Emit real-time update for task creation
     const io = req.app.get('io');
     if (io) {
@@ -75,22 +118,29 @@ exports.createTask = async (req, res) => {
 // @access  Private
 exports.updateTask = async (req, res) => {
   try {
-    const board = await getUserBoard(req.user.id);
+    const userId = req.user?.id || req.user?._id?.toString();
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Not authorized. Please login again.' });
+    }
+
+    const board = await getUserBoard(userId);
     if (!board) {
       return res.status(404).json({ success: false, message: 'Board not found' });
     }
 
     const { title, description, status, priority, tags, dueDate, version } = req.body;
 
+    const { Task } = getModels();
     // Only update tasks that belong to the user's board (security check)
-    let task = await Task.findOne({ _id: req.params.id, board: board._id });
+    let task = await Task.findOne({ _id: req.params.id, board: board._id || board.id });
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }
 
     // Version check for optimistic concurrency / conflict detection
     if (typeof version === 'number' && task.version !== undefined && task.version !== version) {
-      const latest = { ...task.toObject(), id: task._id.toString() };
+      const rawObj = typeof task.toObject === 'function' ? task.toObject() : { ...task };
+      const latest = { ...rawObj, id: (rawObj._id || rawObj.id).toString() };
       return res.status(409).json({
         success: false,
         error: 'conflict',
@@ -111,7 +161,8 @@ exports.updateTask = async (req, res) => {
 
     await task.save();
 
-    const taskObj = { ...task.toObject(), id: task._id.toString() };
+    const rawObj = typeof task.toObject === 'function' ? task.toObject() : { ...task };
+    const taskObj = { ...rawObj, id: (rawObj._id || rawObj.id).toString() };
     // Emit real-time update for task modification
     const io = req.app.get('io');
     if (io) {
@@ -129,12 +180,18 @@ exports.updateTask = async (req, res) => {
 // @access  Private
 exports.deleteTask = async (req, res) => {
   try {
-    const board = await getUserBoard(req.user.id);
+    const userId = req.user?.id || req.user?._id?.toString();
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Not authorized. Please login again.' });
+    }
+
+    const board = await getUserBoard(userId);
     if (!board) {
       return res.status(404).json({ success: false, message: 'Board not found' });
     }
 
-    const task = await Task.findOneAndDelete({ _id: req.params.id, board: board._id });
+    const { Task } = getModels();
+    const task = await Task.findOneAndDelete({ _id: req.params.id, board: board._id || board.id });
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
     }

@@ -1,3 +1,10 @@
+const dns = require('node:dns');
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (e) {
+  // fallback if environment does not permit custom dns
+}
+
 const express = require('express');
 const http = require('http');
 const dotenv = require('dotenv');

@@ -32,16 +32,23 @@ exports.protect = async (req, res, next) => {
         user = await mockStorage.User.findById(decoded.id);
       }
 
-      req.user = user;
+      if (!user) {
+        return res.status(401).json({ success: false, message: 'User not found. Please log in again.' });
+      }
 
-      next();
+      req.user = user;
+      if (!req.user.id && req.user._id) {
+        req.user.id = req.user._id.toString();
+      }
+
+      return next();
     } catch (error) {
       console.error(error);
-      res.status(401).json({ success: false, message: 'Not authorized, token failed' });
+      return res.status(401).json({ success: false, message: 'Not authorized, token failed' });
     }
   }
 
   if (!token) {
-    res.status(401).json({ success: false, message: 'Not authorized, no token' });
+    return res.status(401).json({ success: false, message: 'Not authorized, no token' });
   }
 };
