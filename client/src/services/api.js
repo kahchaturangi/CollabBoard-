@@ -162,4 +162,19 @@ export const apiService = {
       return true;
     }
   },
+
+  async fetchMembers(boardId) {
+    try {
+      const url = boardId ? `${API_BASE}/members?boardId=${boardId}` : `${API_BASE}/members`;
+      const response = await fetch(url, {
+        headers: getHeaders(),
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.members || null;
+    } catch (err) {
+      console.warn('Failed to fetch members from API:', err.message);
+      return null;
+    }
+  },
 };

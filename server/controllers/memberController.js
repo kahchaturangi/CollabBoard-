@@ -149,3 +149,90 @@ exports.acceptInvite = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Get all workspace/board members with real-time presence fields
+// @route   GET /api/members
+// @access  Protected
+exports.getMembers = async (req, res) => {
+  try {
+    const { User, Board } = getModels();
+    const boardId = req.query.boardId;
+    let board = null;
+
+    if (boardId) {
+      try {
+        board = await Board.findById(boardId).populate('owner members', 'username email status lastSeen');
+      } catch (e) {}
+    }
+    if (!board && req.user?.id) {
+      try {
+        board = await Board.findOne({ owner: req.user.id }).populate('owner members', 'username email status lastSeen');
+      } catch (e) {}
+    }
+
+    let usersList = [];
+    if (board && (board.members?.length > 0 || board.owner)) {
+      const map = new Map();
+      if (board.owner && board.owner.username) {
+        const ownerObj = typeof board.owner.toObject === 'function' ? board.owner.toObject() : board.owner;
+        map.set(String(ownerObj._id || ownerObj.id), {
+          ...ownerObj,
+          role: 'Owner',
+        });
+      }
+      if (Array.isArray(board.members)) {
+        for (const m of board.members) {
+          if (m && m.username) {
+            const mObj = typeof m.toObject === 'function' ? m.toObject() : m;
+            const mid = String(mObj._id || mObj.id);
+            if (!map.has(mid)) {
+              map.set(mid, {
+                ...mObj,
+                role: 'Member',
+              });
+            }
+          }
+        }
+      }
+      usersList = Array.from(map.values());
+    }
+
+    // Fallback: fetch registered workspace users if board members list is empty
+    if (usersList.length === 0) {
+      const allUsers = await User.find({}).select('username email status lastSeen');
+      usersList = (allUsers || []).map((u) => {
+        const uObj = typeof u.toObject === 'function' ? u.toObject() : u;
+        return {
+          ...uObj,
+          role: String(uObj._id || uObj.id) === String(req.user?.id) ? 'Owner' : 'Member',
+        };
+      });
+    }
+
+    // Format member objects
+    const formatted = usersList.map((u) => {
+      const uid = String(u._id || u.id);
+      return {
+        id: uid,
+        _id: uid,
+        name: u.username || 'Team Member',
+        username: u.username || 'User',
+        email: u.email || '',
+        role: u.role || 'Member',
+        status: u.status || 'offline',
+        online: u.status === 'online',
+        lastSeen: u.lastSeen || new Date(),
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.username || uid)}`,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      count: formatted.length,
+      members: formatted,
+    });
+  } catch (error) {
+    console.error('Get members error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
