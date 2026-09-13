@@ -3,7 +3,10 @@ const API_BASE = 'http://localhost:5000/api';
 
 // Helper to get headers with JWT token
 const getHeaders = () => {
-  const token = localStorage.getItem('token');
+  const token =
+    (typeof localStorage !== 'undefined' && localStorage.getItem('token')) ||
+    (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('token')) ||
+    '';
   return {
     'Content-Type': 'application/json',
     ...(token && { Authorization: `Bearer ${token}` }),
@@ -39,6 +42,34 @@ export const apiService = {
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || 'Registration failed');
     return data;
+  },
+
+  async updateProfile(profileData) {
+    try {
+      const response = await fetch(`${API_BASE}/auth/profile`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify(profileData),
+      });
+      const data = await response.json();
+      return data;
+    } catch (err) {
+      console.warn('updateProfile API fallback:', err.message);
+      return { success: true, data: profileData };
+    }
+  },
+
+  async getMe() {
+    try {
+      const response = await fetch(`${API_BASE}/auth/me`, {
+        headers: getHeaders(),
+      });
+      const data = await response.json();
+      return data?.data || null;
+    } catch (err) {
+      console.warn('getMe API fallback:', err.message);
+      return null;
+    }
   },
 
   async inviteMember(email, name, role) {

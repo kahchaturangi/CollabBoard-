@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,8 +16,13 @@ import {
   Sparkles,
   ExternalLink,
   Plus,
+  Camera,
+  Upload,
+  RotateCcw,
+  Link2,
 } from 'lucide-react';
 import { formatLastSeen } from '../hooks/usePresence';
+import { apiService } from '../services/api';
 
 export default function Profile({
   members = [],
@@ -27,6 +32,7 @@ export default function Profile({
   setCurrentUser,
 }) {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
 
   // Selected member to view/edit in the profile view (defaults to 1st member)
   const activeMember =
@@ -45,6 +51,7 @@ export default function Profile({
     online: true,
     ...activeMember,
   });
+  const [customUrlInput, setCustomUrlInput] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Sync form data when active member changes
@@ -63,6 +70,7 @@ export default function Profile({
       online: true,
       ...member,
     });
+    setCustomUrlInput('');
     setIsEditing(false);
     setSaveSuccess(false);
   };
@@ -71,19 +79,116 @@ export default function Profile({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveProfile = (e) => {
-    e.preventDefault();
+  // Direct save helper (for immediate photo upload or reset)
+  const saveAvatarDirectly = async (newAvatar) => {
+    const updated = { ...formData, avatar: newAvatar };
+    setFormData(updated);
+
+    if (setMembers) {
+      setMembers((prev) =>
+        prev.map((m) => (m.id === updated.id ? { ...m, avatar: newAvatar } : m))
+      );
+    }
+    if (setCurrentUser && (currentUser?.id === updated.id || currentUser?.email === updated.email)) {
+      setCurrentUser(updated);
+    }
+
+    if (newAvatar) {
+      localStorage.setItem('userAvatar', newAvatar);
+    } else {
+      localStorage.removeItem('userAvatar');
+    }
+
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      storedUser.avatar = newAvatar;
+      localStorage.setItem('user', JSON.stringify(storedUser));
+    } catch (err) {}
+
+    try {
+      await apiService.updateProfile({ avatar: newAvatar });
+    } catch (err) {
+      console.warn('Backend updateProfile avatar error:', err);
+    }
+
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3500);
+  };
+
+  // Handle local file upload
+  const handleImageFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file (PNG, JPG, WEBP, or GIF).');
+      return;
+    }
+
+    if (file.size > 4 * 1024 * 1024) {
+      alert('The selected image is larger than 4MB. Please choose a smaller image.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Url = event.target?.result;
+      if (base64Url) {
+        if (!isEditing) {
+          saveAvatarDirectly(base64Url);
+        } else {
+          setFormData((prev) => ({ ...prev, avatar: base64Url }));
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleSaveProfile = async (e) => {
+    if (e) e.preventDefault();
     if (!setMembers) return;
 
     setMembers((prev) =>
       prev.map((m) => (m.id === formData.id ? { ...formData } : m))
     );
-    if (setCurrentUser && currentUser?.id === formData.id) {
+    if (setCurrentUser && (currentUser?.id === formData.id || currentUser?.email === formData.email)) {
       setCurrentUser(formData);
     }
+
+    if (formData.avatar) {
+      localStorage.setItem('userAvatar', formData.avatar);
+    }
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const updatedUser = {
+        ...storedUser,
+        username: formData.name,
+        name: formData.name,
+        email: formData.email,
+        avatar: formData.avatar,
+        designation: formData.designation,
+        bio: formData.bio,
+        studentId: formData.studentId,
+      };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    } catch (err) {}
+
+    try {
+      await apiService.updateProfile({
+        username: formData.name,
+        avatar: formData.avatar,
+        designation: formData.designation,
+        bio: formData.bio,
+        studentId: formData.studentId,
+      });
+    } catch (err) {
+      console.warn('Backend updateProfile error:', err);
+    }
+
     setIsEditing(false);
     setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    setTimeout(() => setSaveSuccess(false), 3500);
   };
 
   // Find tasks assigned to this active member
@@ -133,9 +238,13 @@ export default function Profile({
 
           <div className="profile-card-body">
             <div className="profile-avatar-row">
-              <div className="profile-avatar-wrapper">
+              <div
+                className="profile-avatar-wrapper"
+                onClick={() => fileInputRef.current?.click()}
+                title="Click to change profile picture"
+              >
                 <img
-                  src={formData.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.name}`}
+                  src={formData.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(formData.name || 'User')}`}
                   alt={formData.name}
                   className="profile-avatar-large"
                   onError={(e) => {
@@ -144,9 +253,30 @@ export default function Profile({
                   }}
                 />
                 <span className={`profile-status-indicator ${formData.online ? 'online' : 'offline'}`} />
+                <div className="profile-avatar-change-overlay" title="Upload new profile photo">
+                  <Camera size={16} />
+                  <span>Change</span>
+                </div>
               </div>
 
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept="image/png, image/jpeg, image/jpg, image/webp, image/gif"
+                onChange={handleImageFileUpload}
+              />
+
               <div className="profile-actions-top">
+                <button
+                  type="button"
+                  className="btn-upload-photo-quick"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Upload profile picture from device"
+                >
+                  <Camera size={14} />
+                  <span>Upload Photo</span>
+                </button>
                 {!isEditing ? (
                   <button
                     type="button"
@@ -247,19 +377,79 @@ export default function Profile({
                     />
                   </div>
 
-                  {/* Avatar Picker */}
-                  <div className="profile-form-group full-width">
-                    <label className="profile-form-label">Choose Avatar Preset</label>
-                    <div className="avatar-presets-row">
-                      {avatarPresets.map((url, i) => (
-                        <img
-                          key={i}
-                          src={url}
-                          alt="Preset"
-                          className={`avatar-preset-thumb ${formData.avatar === url ? 'selected' : ''}`}
-                          onClick={() => handleInputChange('avatar', url)}
+                  {/* Profile Image & Avatar Customization */}
+                  <div className="profile-form-group full-width profile-avatar-edit-section">
+                    <label className="profile-form-label">Profile Image & Avatar</label>
+                    <div className="avatar-edit-controls">
+                      <div className="avatar-action-buttons">
+                        <button
+                          type="button"
+                          className="btn-avatar-control btn-avatar-upload"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <Upload size={14} />
+                          <span>Upload Image from Device</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-avatar-control btn-avatar-reset"
+                          onClick={() => handleInputChange('avatar', '')}
+                        >
+                          <RotateCcw size={14} />
+                          <span>Reset to Default</span>
+                        </button>
+                      </div>
+
+                      {/* Custom URL Input */}
+                      <div className="avatar-url-input-wrap">
+                        <div className="avatar-url-icon">
+                          <Link2 size={15} />
+                        </div>
+                        <input
+                          type="url"
+                          className="profile-form-input avatar-url-input"
+                          placeholder="Or paste direct image URL (https://...)"
+                          value={customUrlInput}
+                          onChange={(e) => setCustomUrlInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (customUrlInput.trim()) {
+                                handleInputChange('avatar', customUrlInput.trim());
+                                setCustomUrlInput('');
+                              }
+                            }
+                          }}
                         />
-                      ))}
+                        <button
+                          type="button"
+                          className="btn-apply-url"
+                          disabled={!customUrlInput.trim()}
+                          onClick={() => {
+                            if (customUrlInput.trim()) {
+                              handleInputChange('avatar', customUrlInput.trim());
+                              setCustomUrlInput('');
+                            }
+                          }}
+                        >
+                          Apply URL
+                        </button>
+                      </div>
+
+                      <div className="avatar-presets-label">
+                        <span>Or select a preset avatar:</span>
+                      </div>
+                      <div className="avatar-presets-row">
+                        {avatarPresets.map((url, i) => (
+                          <img
+                            key={i}
+                            src={url}
+                            alt="Preset"
+                            className={`avatar-preset-thumb ${formData.avatar === url ? 'selected' : ''}`}
+                            onClick={() => handleInputChange('avatar', url)}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>

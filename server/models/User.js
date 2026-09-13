@@ -32,6 +32,22 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  avatar: {
+    type: String,
+    default: '',
+  },
+  designation: {
+    type: String,
+    default: '',
+  },
+  bio: {
+    type: String,
+    default: '',
+  },
+  studentId: {
+    type: String,
+    default: '',
+  },
 }, { timestamps: true });
 
 // Hash password before saving to database

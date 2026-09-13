@@ -80,7 +80,7 @@ exports.createTask = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Board not found. Please re-login.' });
     }
 
-    const { title, description, status, priority, tags, dueDate } = req.body;
+    const { title, description, status, priority, tags, dueDate, assignee } = req.body;
 
     if (!title || title.trim() === '') {
       return res.status(400).json({ success: false, message: 'Task title is required' });
@@ -92,6 +92,7 @@ exports.createTask = async (req, res) => {
       description: description || '',
       status: status || 'todo',
       priority: priority || 'medium',
+      assignee: assignee || null,
       tags: tags || [],
       dueDate: dueDate || null,
       board: board._id || board.id,
@@ -106,6 +107,8 @@ exports.createTask = async (req, res) => {
     if (io) {
       io.to(`board:${board._id.toString()}`).emit('task:created', { task: taskObj });
       io.to(`board:${board._id.toString()}`).emit('task_created', { action: 'create', task: taskObj });
+      io.emit('task:created', { task: taskObj });
+      io.emit('task_created', { action: 'create', task: taskObj });
     }
     res.status(201).json({ success: true, data: taskObj });
   } catch (error) {
@@ -168,6 +171,8 @@ exports.updateTask = async (req, res) => {
     if (io) {
       io.to(`board:${board._id.toString()}`).emit('task:updated', { task: taskObj });
       io.to(`board:${board._id.toString()}`).emit('task_updated', { action: 'update', task: taskObj });
+      io.emit('task:updated', { task: taskObj });
+      io.emit('task_updated', { action: 'update', task: taskObj });
     }
     res.status(200).json({ success: true, data: taskObj });
   } catch (error) {
@@ -201,6 +206,8 @@ exports.deleteTask = async (req, res) => {
     if (io) {
       io.to(`board:${board._id.toString()}`).emit('task:deleted', { taskId: req.params.id, task: { id: req.params.id } });
       io.to(`board:${board._id.toString()}`).emit('task_deleted', { action: 'delete', task: { id: req.params.id } });
+      io.emit('task:deleted', { taskId: req.params.id, task: { id: req.params.id } });
+      io.emit('task_deleted', { action: 'delete', task: { id: req.params.id } });
     }
     res.status(200).json({ success: true, message: 'Task deleted' });
   } catch (error) {

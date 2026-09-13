@@ -24,7 +24,23 @@ export default function App() {
   });
   const [tasks, setTasks] = useState(INITIAL_TASKS);
   const [members, setMembers] = useState(INITIAL_MEMBERS);
-  const [currentUser, setCurrentUser] = useState(INITIAL_MEMBERS[0]);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user') || sessionStorage.getItem('user');
+      const customAvatar = localStorage.getItem('userAvatar') || sessionStorage.getItem('userAvatar');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          ...INITIAL_MEMBERS[0],
+          ...parsed,
+          id: parsed.id || parsed._id || INITIAL_MEMBERS[0].id,
+          name: parsed.username || parsed.name || INITIAL_MEMBERS[0].name,
+          avatar: customAvatar || parsed.avatar || INITIAL_MEMBERS[0].avatar,
+        };
+      }
+    } catch (e) {}
+    return INITIAL_MEMBERS[0];
+  });
   const [columns, setColumns] = useState(INITIAL_COLUMNS);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPriority, setSelectedPriority] = useState('');
@@ -93,6 +109,33 @@ export default function App() {
             });
             return merged;
           });
+        }
+      });
+
+      apiService.getMe().then((me) => {
+        if (me) {
+          const storedAvatar = localStorage.getItem('userAvatar') || sessionStorage.getItem('userAvatar');
+          const finalAvatar = storedAvatar || me.avatar;
+          setCurrentUser((prev) => ({
+            ...prev,
+            id: me._id || me.id || prev.id,
+            name: me.username || prev.name,
+            email: me.email || prev.email,
+            avatar: finalAvatar || prev.avatar,
+            role: me.role || prev.role || 'Lead',
+            designation: me.designation || prev.designation,
+            bio: me.bio || prev.bio,
+            studentId: me.studentId || prev.studentId,
+          }));
+          if (finalAvatar) {
+            setMembers((prev) =>
+              prev.map((m) =>
+                m && m.email && me.email && m.email.toLowerCase() === me.email.toLowerCase()
+                  ? { ...m, avatar: finalAvatar }
+                  : m
+              )
+            );
+          }
         }
       });
     }
@@ -276,11 +319,15 @@ export default function App() {
           prev.map((t) => (String(t.id || t._id) === String(taskId) ? updatedTask : t))
         );
 
-        const res = await updateTask(existingTask, taskData);
-        if (!res || !res.success) {
-          if (res?.error !== 'conflict') {
-            await apiService.updateTask(taskId, taskData);
+        try {
+          const res = await updateTask(existingTask, taskData);
+          if (!res || !res.success) {
+            if (res?.error !== 'conflict') {
+              await apiService.updateTask(taskId, taskData);
+            }
           }
+        } catch (sockErr) {
+          await apiService.updateTask(taskId, taskData);
         }
       } else {
         const newTask = {
@@ -290,8 +337,12 @@ export default function App() {
         };
         setTasks((prev) => [newTask, ...prev]);
 
-        const res = await createTask(newTask);
-        if (!res || !res.success) {
+        try {
+          const res = await createTask(newTask);
+          if (!res || !res.success) {
+            await apiService.createTask(newTask);
+          }
+        } catch (sockErr) {
           await apiService.createTask(newTask);
         }
       }

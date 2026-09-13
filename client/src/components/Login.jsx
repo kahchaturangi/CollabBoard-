@@ -27,13 +27,25 @@ export default function Login({ setIsAuthenticated, setBoardId }) {
     setLoading(true);
     try {
       const data = await apiService.login(email, password);
+      const userData = {
+        id: data._id,
+        username: data.username,
+        name: data.username,
+        email: data.email,
+        avatar: data.avatar || '',
+        designation: data.designation || '',
+        bio: data.bio || '',
+        studentId: data.studentId || '',
+      };
       if (rememberMe) {
         localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify({ username: data.username, email: data.email }));
+        localStorage.setItem('user', JSON.stringify(userData));
+        if (data.avatar) localStorage.setItem('userAvatar', data.avatar);
         if (data.boardId) localStorage.setItem('boardId', data.boardId);
       } else {
         sessionStorage.setItem('token', data.token);
-        sessionStorage.setItem('user', JSON.stringify({ username: data.username, email: data.email }));
+        sessionStorage.setItem('user', JSON.stringify(userData));
+        if (data.avatar) sessionStorage.setItem('userAvatar', data.avatar);
         if (data.boardId) sessionStorage.setItem('boardId', data.boardId);
       }
       setIsAuthenticated(true);

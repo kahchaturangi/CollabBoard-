@@ -79,6 +79,7 @@ exports.registerUser = async (req, res) => {
         _id: user._id,
         username: user.username,
         email: user.email,
+        avatar: user.avatar || '',
         boardId: board._id,
         token: generateToken(user._id, board._id),
       });
@@ -200,6 +201,10 @@ exports.loginUser = async (req, res) => {
       _id: user._id,
       username: user.username,
       email: user.email,
+      avatar: user.avatar || '',
+      designation: user.designation || '',
+      bio: user.bio || '',
+      studentId: user.studentId || '',
       token: generateToken(user._id, board ? board._id : null),
       boardId: board ? board._id : null,
     });
@@ -220,12 +225,57 @@ exports.getMe = async (req, res) => {
       user = await mockStorage.User.findById(req.user.id);
     }
     const board = await Board.findOne({ owner: req.user.id });
+    const userObj = user && user.toObject ? user.toObject() : (user || {});
+    delete userObj.password;
     res.status(200).json({
       success: true,
-      data: { ...user, boardId: board ? board._id : null },
+      data: { ...userObj, boardId: board ? board._id : null },
     });
   } catch (error) {
     console.error('GetMe error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update user profile (avatar, username, designation, bio, etc.)
+// @route   PUT /api/auth/profile
+// @access  Private
+exports.updateProfile = async (req, res) => {
+  try {
+    const { User } = getModels();
+    const { username, avatar, designation, bio, studentId } = req.body;
+
+    const updateFields = {};
+    if (username) updateFields.username = username.trim();
+    if (avatar !== undefined) updateFields.avatar = avatar;
+    if (designation !== undefined) updateFields.designation = designation;
+    if (bio !== undefined) updateFields.bio = bio;
+    if (studentId !== undefined) updateFields.studentId = studentId;
+
+    let updatedUser = null;
+    try {
+      updatedUser = await User.findByIdAndUpdate(req.user.id, updateFields, {
+        new: true,
+        runValidators: true,
+      }).select('-password');
+    } catch (err) {}
+
+    if (!updatedUser) {
+      // Fallback mock update
+      const fallback = await mockStorage.User.findById(req.user.id);
+      if (fallback) {
+        Object.assign(fallback, updateFields);
+        updatedUser = fallback;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: updatedUser,
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

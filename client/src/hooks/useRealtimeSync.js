@@ -34,7 +34,15 @@ export function useRealtimeSync(boardId, setTasks) {
       const task = data.task || data;
       if (!task) return;
       setTasks((prev) => {
-        if (prev.some((t) => taskKey(t) === taskKey(task))) return prev;
+        const key = taskKey(task);
+        const idx = prev.findIndex(
+          (t) => taskKey(t) === key || (t.title === task.title && t.status === task.status && String(t.id || '').startsWith('task-'))
+        );
+        if (idx !== -1) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...task };
+          return next;
+        }
         return [task, ...prev];
       });
     };
@@ -42,7 +50,8 @@ export function useRealtimeSync(boardId, setTasks) {
     const onUpdated = (data) => {
       const task = data.task || data;
       if (!task) return;
-      setTasks((prev) => prev.map((t) => (taskKey(t) === taskKey(task) ? task : t)));
+      const key = taskKey(task);
+      setTasks((prev) => prev.map((t) => (taskKey(t) === key ? { ...t, ...task } : t)));
     };
 
     const onDeleted = (data) => {

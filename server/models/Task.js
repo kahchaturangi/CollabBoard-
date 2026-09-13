@@ -32,26 +32,23 @@ const taskSchema = new mongoose.Schema(
     },
 
     assignee: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      type: mongoose.Schema.Types.Mixed,
       default: null,
     },
 
     dueDate: {
-      type: Date,
+      type: mongoose.Schema.Types.Mixed,
       default: null,
     },
 
     board: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Board',
+      type: mongoose.Schema.Types.Mixed,
       required: true,
     },
 
     createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
     },
 
     // Used for optimistic-concurrency / conflict detection on real-time edits.

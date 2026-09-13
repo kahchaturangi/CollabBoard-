@@ -4,16 +4,19 @@ const SOCKET_URL = 'http://localhost:5000';
 
 let socket = null;
 
+function getToken() {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('token') || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('token') : null);
+}
+
 // Initialize socket immediately when module loads
 function initializeSocket() {
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (socket) {
-    if (socket.connected) return socket;
-    // Update auth token if it changed
     if (token) {
       socket.auth = { token };
     }
-    socket.connect();
+    if (!socket.connected) socket.connect();
     return socket;
   }
 
@@ -21,17 +24,25 @@ function initializeSocket() {
     auth: { token },
     autoConnect: true,
     reconnection: true,
-    reconnectionAttempts: 30,
+    reconnectionAttempts: 50,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
     timeout: 20000,
+  });
+
+  socket.on('connect', () => {
+    console.log('⚡ Socket connected to CollabBoard server, id:', socket.id);
+  });
+
+  socket.on('connect_error', (err) => {
+    console.warn('Socket connection error:', err.message);
   });
 
   return socket;
 }
 
 // Auto-initialize on module load if token exists
-if (typeof window !== 'undefined' && localStorage.getItem('token')) {
+if (typeof window !== 'undefined' && getToken()) {
   initializeSocket();
 }
 
