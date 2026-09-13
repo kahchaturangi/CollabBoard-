@@ -123,19 +123,23 @@ export default function Navbar({
             onClick={onOpenMembersModal}
             title="View & Manage Team Members"
           >
-            {members.slice(0, 3).map((m, idx) => (
-              <img
-                key={m.id || idx}
-                src={m.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.name}`}
-                alt={m.name}
-                className="team-stack-avatar"
-                style={{ zIndex: 10 - idx }}
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80';
-                }}
-              />
-            ))}
+            {members.slice(0, 3).map((m, idx) => {
+              const statusClass = m.status || (m.online ? 'online' : 'offline');
+              return (
+                <div key={m.id || idx} className="team-stack-avatar-wrapper" style={{ zIndex: 10 - idx }}>
+                  <img
+                    src={m.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.name}`}
+                    alt={m.name}
+                    className="team-stack-avatar"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80';
+                    }}
+                  />
+                  <span className={`stack-presence-dot ${statusClass}`} title={`${m.name} (${statusClass})`} />
+                </div>
+              );
+            })}
             {members.length > 3 && (
               <div className="team-stack-more" style={{ zIndex: 6 }}>
                 +{members.length - 3}
@@ -147,10 +151,13 @@ export default function Navbar({
             type="button"
             className="btn-nav-team"
             onClick={onOpenMembersModal}
-            title="Manage Team Members"
+            title="Manage Team Members & View Real-Time Presence"
           >
             <Users size={15} />
             <span>Team ({members.length})</span>
+            {members.some((m) => m.status === 'online' || m.online) && (
+              <span className="nav-online-indicator-dot" title="Online members active" />
+            )}
           </button>
         </div>
 

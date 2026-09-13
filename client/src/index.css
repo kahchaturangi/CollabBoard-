@@ -4996,3 +4996,216 @@ body {
   font-size: 12px;
   color: var(--text-muted);
 }
+
+/* ==========================================================================
+   Real-Time Member Presence & Online Status Indicators
+   ========================================================================== */
+
+.member-status-dot {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  transition: all 0.25s ease;
+  z-index: 2;
+}
+
+.member-status-dot.online {
+  background-color: #10b981;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2), 0 0 6px rgba(16, 185, 129, 0.5);
+}
+
+.member-status-dot.away {
+  background-color: #f59e0b;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2), 0 0 6px rgba(245, 158, 11, 0.5);
+}
+
+.member-status-dot.offline {
+  background-color: #94a3b8;
+  box-shadow: none;
+}
+
+.member-status-dot.pending {
+  background-color: #8b5cf6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.member-meta-subrow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 3px;
+}
+
+.member-presence-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+
+.member-presence-badge .badge-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.member-presence-badge.online {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.member-presence-badge.online .badge-status-dot {
+  background-color: #10b981;
+  box-shadow: 0 0 4px #10b981;
+}
+
+.member-presence-badge.away {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.member-presence-badge.away .badge-status-dot {
+  background-color: #f59e0b;
+}
+
+.member-presence-badge.offline {
+  background-color: rgba(148, 163, 184, 0.12);
+  color: #64748b;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.member-presence-badge.offline .badge-status-dot {
+  background-color: #94a3b8;
+}
+
+/* Navbar Avatar Stack Presence Indicators */
+.team-stack-avatar-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-left: -10px;
+}
+
+.team-stack-avatar-wrapper:first-child {
+  margin-left: 0;
+}
+
+.stack-presence-dot {
+  position: absolute;
+  bottom: 0px;
+  right: 0px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  z-index: 15;
+}
+
+.stack-presence-dot.online {
+  background-color: #10b981;
+  box-shadow: 0 0 4px rgba(16, 185, 129, 0.6);
+}
+
+.stack-presence-dot.away {
+  background-color: #f59e0b;
+}
+
+.stack-presence-dot.offline {
+  background-color: #94a3b8;
+}
+
+.nav-online-indicator-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  margin-left: 3px;
+  animation: pulse-online 2s infinite ease-in-out;
+}
+
+@keyframes pulse-online {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+/* Directory Presence Text & Dots */
+.directory-online-dot {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+}
+
+.directory-online-dot.online {
+  background-color: #10b981;
+  box-shadow: 0 0 4px rgba(16, 185, 129, 0.5);
+}
+
+.directory-online-dot.away {
+  background-color: #f59e0b;
+}
+
+.directory-online-dot.offline {
+  background-color: #94a3b8;
+}
+
+.directory-presence-text {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.directory-presence-text.online {
+  color: #10b981;
+}
+
+.directory-presence-text.away {
+  color: #f59e0b;
+}
+
+.directory-presence-text.offline {
+  color: var(--text-muted, #64748b);
+}
+
+/* Dark theme overrides for presence indicators */
+[data-theme="dark"] .member-status-dot,
+[data-theme="dark"] .stack-presence-dot,
+[data-theme="dark"] .directory-online-dot {
+  border-color: #151b2b;
+}
+
+[data-theme="dark"] .member-presence-badge.online {
+  background-color: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+}
+
+[data-theme="dark"] .member-presence-badge.away {
+  background-color: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .member-presence-badge.offline {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}

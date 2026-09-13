@@ -17,6 +17,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { apiService } from '../services/api';
+import { formatLastSeen } from '../hooks/usePresence';
 
 export default function MembersModal({
   isOpen,
@@ -340,8 +341,8 @@ export default function MembersModal({
                         </span>
                       ) : (
                         <span
-                          className={`member-status-dot ${member.online !== false ? 'online' : 'offline'}`}
-                          title={member.online !== false ? 'Online' : 'Offline'}
+                          className={`member-status-dot ${member.status || (member.online ? 'online' : 'offline')}`}
+                          title={member.status === 'away' ? 'Away' : (member.online || member.status === 'online') ? 'Online' : 'Offline'}
                         />
                       )}
                     </div>
@@ -360,7 +361,15 @@ export default function MembersModal({
                           </span>
                         )}
                       </div>
-                      <span className="member-email-text">{member.email}</span>
+                      <div className="member-meta-subrow">
+                        <span className="member-email-text">{member.email}</span>
+                        {!isPending && (
+                          <span className={`member-presence-badge ${member.status || (member.online ? 'online' : 'offline')}`}>
+                            <span className="badge-status-dot" />
+                            {formatLastSeen(member.lastSeen, member.status || (member.online ? 'online' : 'offline'))}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="member-actions-col">

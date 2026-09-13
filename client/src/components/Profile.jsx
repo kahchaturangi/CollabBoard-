@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Plus,
 } from 'lucide-react';
+import { formatLastSeen } from '../hooks/usePresence';
 
 export default function Profile({
   members = [],
@@ -389,7 +390,7 @@ export default function Profile({
                           e.target.src = avatarPresets[index % avatarPresets.length];
                         }}
                       />
-                      <span className={`directory-online-dot ${member.online ? 'online' : 'offline'}`} />
+                      <span className={`directory-online-dot ${member.status || (member.online ? 'online' : 'offline')}`} />
                     </div>
 
                     <div className="directory-member-meta">
@@ -398,6 +399,9 @@ export default function Profile({
                         {member.role === 'Owner' && <span className="mini-owner-badge">Owner</span>}
                       </div>
                       <span className="directory-designation">{member.designation || 'Team Member'}</span>
+                      <span className={`directory-presence-text ${member.status || (member.online ? 'online' : 'offline')}`}>
+                        {formatLastSeen(member.lastSeen, member.status || (member.online ? 'online' : 'offline'))}
+                      </span>
                       <span className="directory-email">{member.email}</span>
                     </div>
                   </div>

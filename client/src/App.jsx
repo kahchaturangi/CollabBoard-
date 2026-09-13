@@ -12,6 +12,7 @@ import Profile from './components/Profile';
 import AcceptInvite from './components/AcceptInvite';
 import ConflictBanner from './components/ConflictBanner';
 import { useRealtimeSync } from './hooks/useRealtimeSync';
+import { usePresence } from './hooks/usePresence';
 import { INITIAL_COLUMNS, INITIAL_TASKS, INITIAL_MEMBERS } from './mockData';
 import { apiService } from './services/api';
 import { connectSocket, getSocket } from './services/socket';
@@ -35,6 +36,9 @@ export default function App() {
   const [taskToEdit, setTaskToEdit] = useState(null);
   const [defaultStatus, setDefaultStatus] = useState('todo');
   const [showSplash, setShowSplash] = useState(true);
+
+  // Real-time member presence & activity tracking
+  usePresence(boardId || 'default-board', setMembers);
 
   // Real-time WebSocket sync & concurrency conflict handler
   const {
@@ -64,7 +68,7 @@ export default function App() {
     }
   }, []);
 
-  // Fetch tasks from API on login
+  // Fetch tasks and real members from API on login
   useEffect(() => {
     if (isAuthenticated) {
       apiService.fetchTasks().then((fetched) => {
@@ -72,8 +76,27 @@ export default function App() {
           setTasks(fetched);
         }
       });
+
+      apiService.fetchMembers(boardId).then((fetchedMembers) => {
+        if (fetchedMembers && fetchedMembers.length > 0) {
+          setMembers((prev) => {
+            const merged = [...fetchedMembers];
+            // Preserve any existing invited/custom members
+            prev.forEach((p) => {
+              if (
+                p &&
+                p.email &&
+                !merged.some((m) => m && m.email && m.email.toLowerCase() === p.email.toLowerCase())
+              ) {
+                merged.push(p);
+              }
+            });
+            return merged;
+          });
+        }
+      });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, boardId]);
 
   // Set up listeners for member events
   useEffect(() => {
