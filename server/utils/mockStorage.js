@@ -70,6 +70,8 @@ const MockUser = class {
     this.username = username;
     this.email = email;
     this.password = password;
+    this.status = 'offline';
+    this.lastSeen = new Date();
   }
 
   async matchPassword(password) {

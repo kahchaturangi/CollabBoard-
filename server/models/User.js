@@ -23,6 +23,15 @@ const userSchema = new mongoose.Schema({
     minlength: 6,
     select: false, // Don't return password by default
   },
+  status: {
+    type: String,
+    enum: ['online', 'away', 'offline'],
+    default: 'offline',
+  },
+  lastSeen: {
+    type: Date,
+    default: Date.now,
+  },
 }, { timestamps: true });
 
 // Hash password before saving to database
