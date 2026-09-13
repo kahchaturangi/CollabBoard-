@@ -6,14 +6,27 @@ let socket = null;
 
 // Initialize socket immediately when module loads
 function initializeSocket() {
-  if (socket && socket.connected) return socket;
-  
   const token = localStorage.getItem('token');
+  if (socket) {
+    if (socket.connected) return socket;
+    // Update auth token if it changed
+    if (token) {
+      socket.auth = { token };
+    }
+    socket.connect();
+    return socket;
+  }
+
   socket = io(SOCKET_URL, {
     auth: { token },
     autoConnect: true,
+    reconnection: true,
+    reconnectionAttempts: 30,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000,
   });
-  
+
   return socket;
 }
 
@@ -88,5 +101,9 @@ export const realtimeService = {
 
   deleteTask(taskId, boardId, version) {
     return emitWithAck('task:delete', { taskId, boardId, version });
+  },
+
+  updatePresenceStatus(status) {
+    socket?.emit('presence:status', { status });
   },
 };
